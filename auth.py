@@ -1,6 +1,5 @@
 """
 AUTHENTICATION GUI MODULE - Login and Registration interface
-Simplified: Only Email, Password, and Full Name for registration
 """
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -155,7 +154,7 @@ class AuthWindow:
                 font=("Arial", 8), bg='#fff3e0', fg='#7f8c8d', justify='left').pack(pady=(0, 8))
         
         # Note about no confirm password
-        note_label = tk.Label(container, text="💡 Tip: Make sure you remember your password!", 
+        note_label = tk.Label(container, text="Tip: Make sure you remember your password!", 
                              font=("Arial", 8), bg='white', fg='#95a5a6')
         note_label.pack(pady=(5, 0))
     
@@ -165,21 +164,21 @@ class AuthWindow:
         password = self.login_password.get()
         
         if not email:
-            messagebox.showerror("Error", "❌ Please enter email address")
+            messagebox.showerror("Error", "Please enter email address")
             return
         
         if not password:
-            messagebox.showerror("Error", "❌ Please enter password")
+            messagebox.showerror("Error", "Please enter password")
             return
         
         if verify_user(email, password):
             user_info = get_user_info(email)
             name = user_info.get('fullname', email) if user_info else email
-            messagebox.showinfo("Success", f"✅ Welcome {name}!\n\nLogin successful!")
+            messagebox.showinfo("Success", f" Welcome {name}!\n\nLogin successful!")
             self.root.destroy()
             self.open_main_app(email)
         else:
-            messagebox.showerror("Error", "❌ Invalid email or password!\n\nDemo: admin@supermarket.com / admin123")
+            messagebox.showerror("Error", "Invalid email or password!\n\nDemo: admin@supermarket.com / admin123")
     
     def register(self):
         """Handle registration - only email, password, fullname"""
@@ -189,24 +188,24 @@ class AuthWindow:
         
         # Validation
         if not fullname:
-            messagebox.showerror("Error", "❌ Please enter your full name")
+            messagebox.showerror("Error", "Please enter your full name")
             return
         
         if not email:
-            messagebox.showerror("Error", "❌ Please enter email address")
+            messagebox.showerror("Error", "Please enter email address")
             return
         
         # Basic email validation
         if "@" not in email or "." not in email:
-            messagebox.showerror("Error", "❌ Please enter a valid email address\n(e.g., name@example.com)")
+            messagebox.showerror("Error", " Please enter a valid email address\n(e.g., name@example.com)")
             return
         
         if not password:
-            messagebox.showerror("Error", "❌ Please enter a password")
+            messagebox.showerror("Error", " Please enter a password")
             return
         
         if len(password) < 4:
-            messagebox.showerror("Error", "❌ Password must be at least 4 characters")
+            messagebox.showerror("Error", " Password must be at least 4 characters")
             return
         
         # Register user
