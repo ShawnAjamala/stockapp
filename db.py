@@ -84,6 +84,13 @@ def find_product_by_name_and_user(product_name, user_email):
     """Find product by name and user email"""
     return products.find_one({"name": product_name, "user_email": user_email})
 
+def update_product_by_name(user_email, product_name, quantity, price):
+    """Update product by name and user email"""
+    return products.update_one(
+        {"user_email": user_email, "name": product_name},
+        {"$set": {"quantity": quantity, "price": price, "updated_at": datetime.now()}}
+    )
+
 # Allows data to be transfered between users for easy management of warehouse and supermarket stock data
 def create_transfer(from_email, to_email, product_name, quantity):
     """Record a transfer between users"""
@@ -109,3 +116,11 @@ def get_transfers_by_user(email):
 def get_all_transfers():
     """Get all transfers"""
     return list(transfers.find({}))
+
+def get_transfers_sent_by_user(email):
+    """Get all transfers sent by a user"""
+    return list(transfers.find({"from_email": email}))
+
+def get_transfers_received_by_user(email):
+    """Get all transfers received by a user"""
+    return list(transfers.find({"to_email": email}))
