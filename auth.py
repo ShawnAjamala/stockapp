@@ -1,6 +1,9 @@
 # Imports the necessary requirements from tkinter for the GUI
 import tkinter as tk
 from tkinter import ttk, messagebox
+import threading
+from supermarket_dashboard import SupermarketDashboard
+from warehouse_dashboard import WarehouseDashboard
 from db import (
     create_user, find_user_by_email, find_user_by_email_and_password,
     SUPERMARKET_PASSWORD, WAREHOUSE_PASSWORD
@@ -115,14 +118,24 @@ class AuthWindow:
             messagebox.showerror("Error", "Please enter email and password")
             return
         
-        user = find_user_by_email_and_password(email, password)
+        # Show loading message
+        self.root.config(cursor="watch")
+        self.root.update()
         
-        if user:
-            messagebox.showinfo("Success", f"Welcome {user['fullname']}!\nRole: {user['role']}")
-            self.root.destroy()
-            self.open_dashboard(user)
-        else:
-            messagebox.showerror("Error", "Invalid email or password")
+        try:
+            user = find_user_by_email_and_password(email, password)
+            
+            if user:
+                messagebox.showinfo("Success", f"Welcome {user['fullname']}!\nRole: {user['role']}")
+                self.root.config(cursor="")
+                self.root.destroy()
+                self.open_dashboard(user)
+            else:
+                self.root.config(cursor="")
+                messagebox.showerror("Error", "Invalid email or password")
+        except Exception as e:
+            self.root.config(cursor="")
+            messagebox.showerror("Error", f"Connection error: {str(e)}\nPlease check your internet connection")
     
     def register(self):
        # Handles registration process
@@ -139,82 +152,54 @@ class AuthWindow:
             messagebox.showerror("Error", "Invalid email format")
             return
         
-        # Check if email exists
-        if find_user_by_email(email):
-            messagebox.showerror("Error", "Email already registered")
-            return
+        # Show loading message
+        self.root.config(cursor="watch")
+        self.root.update()
         
-        # Check role password (passwords are to be given by the main admin who made the site)
-        if role == "supermarket" and password != SUPERMARKET_PASSWORD:
-            messagebox.showerror("Error", "Invalid role password")
-            return
-        elif role == "warehouse" and password != WAREHOUSE_PASSWORD:
-            messagebox.showerror("Error", "Invalid role password")
-            return
-        
-        # Create user
-        create_user(email, password, name, role)
-        messagebox.showinfo("Success", f"User {name} registered successfully!")
-        
-        # Clear fields
-        self.reg_name.delete(0, tk.END)
-        self.reg_email.delete(0, tk.END)
-        self.reg_role.set('')
-        self.reg_password.delete(0, tk.END)
-        
-        # Switch to login tab
-        self.root.children['!notebook'].select(0)
+        try:
+            # Check if email exists
+            if find_user_by_email(email):
+                self.root.config(cursor="")
+                messagebox.showerror("Error", "Email already registered")
+                return
+            
+            # Check role password (passwords are to be given by the main admin who made the site)
+            if role == "supermarket" and password != SUPERMARKET_PASSWORD:
+                self.root.config(cursor="")
+                messagebox.showerror("Error", "Invalid role password")
+                return
+            elif role == "warehouse" and password != WAREHOUSE_PASSWORD:
+                self.root.config(cursor="")
+                messagebox.showerror("Error", "Invalid role password")
+                return
+            
+            # Create user
+            create_user(email, password, name, role)
+            self.root.config(cursor="")
+            messagebox.showinfo("Success", f"User {name} registered successfully!")
+            
+            # Clear fields
+            self.reg_name.delete(0, tk.END)
+            self.reg_email.delete(0, tk.END)
+            self.reg_role.set('')
+            self.reg_password.delete(0, tk.END)
+            
+            # Switch to login tab
+            self.root.children['!notebook'].select(0)
+        except Exception as e:
+            self.root.config(cursor="")
+            messagebox.showerror("Error", f"Connection error: {str(e)}\nPlease check your internet connection")
     
     def open_dashboard(self, user):
        #redirects to the specific dashboard depending on ones role
-        dashboard = tk.Tk()
-        dashboard.title(f"{user['role'].upper()} Dashboard")
-        dashboard.geometry("600x400")
-        dashboard.configure(bg='#FFF8F0')
-        
-        # Center dashboard
-        dashboard.update_idletasks()
-        x = (dashboard.winfo_screenwidth() - 600) // 2
-        y = (dashboard.winfo_screenheight() - 400) // 2
-        dashboard.geometry(f'600x400+{x}+{y}')
-        
-        # Header
-        header = tk.Frame(dashboard, bg='#E67E22', height=80)
-        header.pack(fill="x")
-        tk.Label(header, text=f"{user['role'].upper()} ADMIN DASHBOARD", 
-                font=("Arial", 14, "bold"), bg='#E67E22', fg='white').pack(pady=25)
-        
-        # Content
-        content = tk.Frame(dashboard, bg='#FFF8F0')
-        content.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        tk.Label(content, text=f"Welcome {user['fullname']}!", 
-                font=("Arial", 12, "bold"), bg='#FFF8F0', fg='#E67E22').pack(pady=10)
-        tk.Label(content, text=f"Email: {user['email']}\nRole: {user['role']}", 
-                bg='#FFF8F0', fg='#5D4E37').pack(pady=5)
-        
-        # Role-specific info
         if user['role'] == 'supermarket':
-            tk.Label(content, text="\nSupermarket Functions:", 
-                    font=("Arial", 10, "bold"), bg='#FFF8F0', fg='#E67E22').pack(pady=10)
-            tk.Label(content, text="- Receive stock from warehouse\n- View inventory\n- Track transfers", 
-                    bg='#FFF8F0', fg='#5D4E37').pack()
+            dashboard_root = tk.Tk()
+            SupermarketDashboard(dashboard_root, user)
+            dashboard_root.mainloop()
         else:
-            tk.Label(content, text="\nWarehouse Functions:", 
-                    font=("Arial", 10, "bold"), bg='#FFF8F0', fg='#E67E22').pack(pady=10)
-            tk.Label(content, text="- Send stock to supermarket\n- Manage warehouse inventory\n- View all transfers", 
-                    bg='#FFF8F0', fg='#5D4E37').pack()
-        
-        def logout():
-            dashboard.destroy()
-            root = tk.Tk()
-            AuthWindow(root)
-            root.mainloop()
-        
-        tk.Button(content, text="LOGOUT", command=logout,
-                 bg='#E74C3C', fg='white', width=15, font=("Arial", 10, "bold"), relief='flat').pack(pady=20)
-        
-        dashboard.mainloop()
+            dashboard_root = tk.Tk()
+            WarehouseDashboard(dashboard_root, user)
+            dashboard_root.mainloop()
 
 # Run app
 if __name__ == "__main__":
