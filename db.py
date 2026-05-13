@@ -48,52 +48,140 @@ def get_users_by_role(role):
     """Get users by role"""
     return list(users.find({"role": role}))
 
-# Allows the database to track products inserted by the user
-def create_product(user_email, product_name, quantity, price):
-    """Insert new product for a user"""
-    product_data = {
-        "user_email": user_email,
-        "name": product_name,
-        "quantity": quantity,
-        "price": price,
-        "created_at": datetime.now(),
-        "updated_at": datetime.now()
-    }
-    return products.insert_one(product_data)
+# ==================== WAREHOUSE STOCK OPERATIONS (All warehouse admins share data) ====================
 
-def get_products_by_user(user_email):
-    """Get all products for a specific user"""
-    return list(products.find({"user_email": user_email}))
+def create_warehouse_product(product_name, quantity, price):
+    """Insert new product for warehouse - ALL warehouse admins can see"""
+    try:
+        # Check if product already exists in warehouse
+        existing = products.find_one({"name": product_name, "type": "warehouse"})
+        if existing:
+            return False, "Product already exists in warehouse"
+        
+        product_data = {
+            "name": product_name,
+            "quantity": quantity,
+            "price": price,
+            "type": "warehouse",
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        }
+        products.insert_one(product_data)
+        return True, f"Product '{product_name}' added to warehouse successfully"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
 
-def get_all_products():
-    """Get all products from all users"""
-    return list(products.find({}))
+def get_all_warehouse_products():
+    """Get ALL warehouse products - visible to every warehouse admin"""
+    try:
+        return list(products.find({"type": "warehouse"}))
+    except Exception as e:
+        print(f"Error getting warehouse products: {e}")
+        return []
 
-def update_product_quantity(product_id, new_quantity):
-    """Update product quantity by product ID"""
-    return products.update_one(
-        {"_id": product_id},
-        {"$set": {"quantity": new_quantity, "updated_at": datetime.now()}}
-    )
+def update_warehouse_product(product_name, quantity, price):
+    """Update warehouse product by name - affects all warehouse admins"""
+    try:
+        result = products.update_one(
+            {"name": product_name, "type": "warehouse"},
+            {"$set": {"quantity": quantity, "price": price, "updated_at": datetime.now()}}
+        )
+        if result.modified_count > 0:
+            return True, "Product updated successfully"
+        return False, "Product not found"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
 
-def delete_product(product_id):
-    """Delete product by ID"""
-    return products.delete_one({"_id": product_id})
+def delete_warehouse_product(product_name):
+    """Delete warehouse product by name - removes for all warehouse admins"""
+    try:
+        result = products.delete_one({"name": product_name, "type": "warehouse"})
+        if result.deleted_count > 0:
+            return True, "Product deleted successfully"
+        return False, "Product not found"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
 
-def find_product_by_name_and_user(product_name, user_email):
-    """Find product by name and user email"""
-    return products.find_one({"name": product_name, "user_email": user_email})
+def search_warehouse_products(keyword):
+    """Search warehouse products by name - across all warehouse data"""
+    try:
+        return list(products.find({
+            "type": "warehouse",
+            "name": {"$regex": keyword, "$options": "i"}
+        }))
+    except Exception as e:
+        print(f"Error searching products: {e}")
+        return []
 
-def update_product_by_name(user_email, product_name, quantity, price):
-    """Update product by name and user email"""
-    return products.update_one(
-        {"user_email": user_email, "name": product_name},
-        {"$set": {"quantity": quantity, "price": price, "updated_at": datetime.now()}}
-    )
+# ==================== SUPERMARKET PRODUCT OPERATIONS (All supermarket admins share data) ====================
 
-# Allows data to be transfered between users for easy management of warehouse and supermarket stock data
+def create_supermarket_product(product_name, quantity, price):
+    """Insert new product for supermarket - ALL supermarket admins can see"""
+    try:
+        # Check if product already exists in supermarket
+        existing = products.find_one({"name": product_name, "type": "supermarket"})
+        if existing:
+            return False, "Product already exists in supermarket inventory"
+        
+        product_data = {
+            "name": product_name,
+            "quantity": quantity,
+            "price": price,
+            "type": "supermarket",
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        }
+        products.insert_one(product_data)
+        return True, f"Product '{product_name}' added to supermarket successfully"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+
+def get_all_supermarket_products():
+    """Get ALL supermarket products - visible to every supermarket admin"""
+    try:
+        return list(products.find({"type": "supermarket"}))
+    except Exception as e:
+        print(f"Error getting supermarket products: {e}")
+        return []
+
+def update_supermarket_product(product_name, quantity, price):
+    """Update supermarket product by name - affects all supermarket admins"""
+    try:
+        result = products.update_one(
+            {"name": product_name, "type": "supermarket"},
+            {"$set": {"quantity": quantity, "price": price, "updated_at": datetime.now()}}
+        )
+        if result.modified_count > 0:
+            return True, "Product updated successfully"
+        return False, "Product not found"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+
+def delete_supermarket_product(product_name):
+    """Delete supermarket product by name - removes for all supermarket admins"""
+    try:
+        result = products.delete_one({"name": product_name, "type": "supermarket"})
+        if result.deleted_count > 0:
+            return True, "Product deleted successfully"
+        return False, "Product not found"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+
+def search_supermarket_products(keyword):
+    """Search supermarket products by name - across all supermarket data"""
+    try:
+        return list(products.find({
+            "type": "supermarket",
+            "name": {"$regex": keyword, "$options": "i"}
+        }))
+    except Exception as e:
+        print(f"Error searching products: {e}")
+        return []
+
+# ==================== TRANSFER OPERATIONS ====================
+
 def create_transfer(from_email, to_email, product_name, quantity):
-    """Record a transfer between users"""
+    """Record a transfer between warehouse and supermarket"""
     transfer_data = {
         "from_email": from_email,
         "to_email": to_email,
@@ -104,23 +192,24 @@ def create_transfer(from_email, to_email, product_name, quantity):
     }
     return transfers.insert_one(transfer_data)
 
-def get_transfers_by_user(email):
-    """Get all transfers where user is sender or receiver"""
-    return list(transfers.find({
-        "$or": [
-            {"from_email": email},
-            {"to_email": email}
-        ]
-    }))
-
 def get_all_transfers():
-    """Get all transfers"""
-    return list(transfers.find({}))
+    """Get all transfers - visible to all admins"""
+    try:
+        return list(transfers.find({}))
+    except Exception as e:
+        print(f"Error getting transfers: {e}")
+        return []
 
-def get_transfers_sent_by_user(email):
-    """Get all transfers sent by a user"""
-    return list(transfers.find({"from_email": email}))
+def get_transfers_by_role(role):
+    """Get transfers based on role"""
+    try:
+        if role == "warehouse":
+            # Warehouse sees transfers they sent
+            return list(transfers.find({}))
+        else:
+            # Supermarket sees all transfers to them
+            return list(transfers.find({}))
+    except Exception as e:
+        print(f"Error getting transfers: {e}")
+        return []
 
-def get_transfers_received_by_user(email):
-    """Get all transfers received by a user"""
-    return list(transfers.find({"to_email": email}))
