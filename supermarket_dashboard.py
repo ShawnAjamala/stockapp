@@ -1,168 +1,281 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from supermarket_products import SupermarketProducts
-from supermarket_receive import SupermarketReceive
-from supermarket_transfers import SupermarketTransfers
-from supermarket_profile import SupermarketProfile
+from db import (
+    get_all_supermarket_products,
+    record_sale,
+    get_today_sales,
+    get_all_sales
+)
 
-class SupermarketDashboard:
-    def __init__(self, root, user):
-        self.root = root
+class SupermarketSales(tk.Frame):
+    def __init__(self, parent, user, refresh_callback=None):
+        super().__init__(parent)
         self.user = user
-        self.root.title(f"FreshStock Manager - Supermarket Dashboard")
-        self.root.geometry("1200x700")
-        self.root.configure(bg='#F5F6FA')
+        self.refresh_callback = refresh_callback
+        self.configure(bg='#F5F6FA')
         
-        self.current_frame = None
-        self.center_window()
         self.create_widgets()
-        
-        # Show dashboard by default
-        self.show_dashboard()
-    
-    def center_window(self):
-        self.root.update_idletasks()
-        x = (self.root.winfo_screenwidth() - 1200) // 2
-        y = (self.root.winfo_screenheight() - 700) // 2
-        self.root.geometry(f'1200x700+{x}+{y}')
+        self.load_products()
+        self.load_today_sales()
     
     def create_widgets(self):
-        # Top Navigation Bar
-        nav_bar = tk.Frame(self.root, bg='#E67E22', height=65)
-        nav_bar.pack(fill="x")
-        nav_bar.pack_propagate(False)
+        # Header
+        header_frame = tk.Frame(self, bg='#FFFFFF')
+        header_frame.pack(fill="x", pady=(0, 20))
         
-        # Logo section
-        logo_frame = tk.Frame(nav_bar, bg='#E67E22')
-        logo_frame.pack(side='left', padx=30, pady=12)
+        tk.Label(header_frame, text="RECORD SALES", 
+                font=("Segoe UI", 20, "bold"), 
+                bg='#FFFFFF', fg='#E67E22').pack(pady=20)
         
-        tk.Label(logo_frame, text="FRESHSTOCK", font=("Segoe UI", 18, "bold"), bg='#E67E22', fg='white').pack(side='left')
-        tk.Label(logo_frame, text="Supermarket", font=("Segoe UI", 10), bg='#E67E22', fg='#FAD7A1').pack(side='left', padx=(8,0))
+        # Create two columns - left for sales form, right for today's sales
+        left_frame = tk.Frame(self, bg='#F5F6FA')
+        left_frame.pack(side='left', fill='both', expand=True, padx=10)
         
-        # Navigation buttons
-        nav_buttons = [
-            ("Dashboard", self.show_dashboard),
-            ("Products", self.show_products),
-            ("Receive Stock", self.show_receive),
-            ("Transfers", self.show_transfers),
-            ("Profile", self.show_profile)
-        ]
+        right_frame = tk.Frame(self, bg='#F5F6FA')
+        right_frame.pack(side='right', fill='both', expand=True, padx=10)
         
-        nav_frame = tk.Frame(nav_bar, bg='#E67E22')
-        nav_frame.pack(side='left', padx=50)
+        # ========== LEFT SECTION - Record Sale Form ==========
+        form_frame = tk.LabelFrame(left_frame, text="RECORD NEW SALE", 
+                                   font=("Segoe UI", 12, "bold"), 
+                                   bg='#FFFFFF', fg='#E67E22')
+        form_frame.pack(fill="x", pady=10)
         
-        for text, command in nav_buttons:
-            btn = tk.Button(nav_frame, text=text, command=command,
-                          bg='#E67E22', fg='white', font=("Segoe UI", 10),
-                          relief='flat', cursor='hand2', padx=20, pady=8)
-            btn.pack(side='left', padx=5)
+        form_inner = tk.Frame(form_frame, bg='#FFFFFF')
+        form_inner.pack(pady=20, padx=20)
+        
+        # Select Product
+        tk.Label(form_inner, text="Select Product:", font=("Segoe UI", 10), 
+                bg='#FFFFFF').grid(row=0, column=0, padx=10, pady=10, sticky='w')
+        self.product_select = ttk.Combobox(form_inner, width=30, font=("Segoe UI", 10), state='readonly')
+        self.product_select.grid(row=0, column=1, padx=10, pady=10)
+        self.product_select.bind('<<ComboboxSelected>>', self.on_product_select)
+        
+        # Available Stock
+        tk.Label(form_inner, text="Available Stock:", font=("Segoe UI", 10), 
+                bg='#FFFFFF').grid(row=0, column=2, padx=10, pady=10, sticky='w')
+        self.available_label = tk.Label(form_inner, text="0 KG", font=("Segoe UI", 10, "bold"), 
+                                        bg='#FFFFFF', fg='#27AE60')
+        self.available_label.grid(row=0, column=3, padx=10, pady=10)
+        
+        # Cost Price (for reference)
+        tk.Label(form_inner, text="Cost Price (per KG):", font=("Segoe UI", 10), 
+                bg='#FFFFFF').grid(row=1, column=0, padx=10, pady=10, sticky='w')
+        self.cost_label = tk.Label(form_inner, text="$0.00", font=("Segoe UI", 10, "bold"), 
+                                   bg='#FFFFFF', fg='#E67E22')
+        self.cost_label.grid(row=1, column=1, padx=10, pady=10)
+        
+        # Selling Price (per KG)
+        tk.Label(form_inner, text="Selling Price (per KG):", font=("Segoe UI", 10), 
+                bg='#FFFFFF').grid(row=1, column=2, padx=10, pady=10, sticky='w')
+        self.selling_price_entry = tk.Entry(form_inner, width=15, font=("Segoe UI", 10), relief='solid', bd=1)
+        self.selling_price_entry.grid(row=1, column=3, padx=10, pady=10)
+        self.selling_price_entry.bind('<KeyRelease>', self.update_profit_preview)
+        
+        # Quantity Sold
+        tk.Label(form_inner, text="Quantity Sold (KG):", font=("Segoe UI", 10), 
+                bg='#FFFFFF').grid(row=2, column=0, padx=10, pady=10, sticky='w')
+        self.quantity_entry = tk.Entry(form_inner, width=15, font=("Segoe UI", 10), relief='solid', bd=1)
+        self.quantity_entry.grid(row=2, column=1, padx=10, pady=10)
+        self.quantity_entry.bind('<KeyRelease>', self.update_profit_preview)
+        
+        # Profit Preview
+        tk.Label(form_inner, text="Profit on this sale:", font=("Segoe UI", 10), 
+                bg='#FFFFFF').grid(row=2, column=2, padx=10, pady=10, sticky='w')
+        self.profit_preview = tk.Label(form_inner, text="$0.00", font=("Segoe UI", 11, "bold"), 
+                                       bg='#FFFFFF', fg='#27AE60')
+        self.profit_preview.grid(row=2, column=3, padx=10, pady=10)
+        
+        # Record Sale Button
+        tk.Button(form_inner, text="RECORD SALE", command=self.record_sale,
+                 bg='#27AE60', fg='white', font=("Segoe UI", 11, "bold"), 
+                 relief='flat', cursor='hand2', padx=30, pady=10).grid(row=3, column=0, columnspan=4, pady=20)
+        
+        # ========== RIGHT SECTION - Today's Sales ==========
+        sales_frame = tk.LabelFrame(right_frame, text="TODAY'S SALES", 
+                                    font=("Segoe UI", 12, "bold"), 
+                                    bg='#FFFFFF', fg='#E67E22')
+        sales_frame.pack(fill="both", expand=True, pady=10)
+        
+        # Summary bar
+        summary_frame = tk.Frame(sales_frame, bg='#FEF9E7', relief='solid', bd=1)
+        summary_frame.pack(fill="x", padx=10, pady=10)
+        
+        self.total_sales_label = tk.Label(summary_frame, text="Today's Total Sales: 0 KG", 
+                                          font=("Segoe UI", 11, "bold"), 
+                                          bg='#FEF9E7', fg='#E67E22')
+        self.total_sales_label.pack(side='left', padx=15, pady=8)
+        
+        self.total_profit_label = tk.Label(summary_frame, text="Today's Total Profit: $0.00", 
+                                           font=("Segoe UI", 11, "bold"), 
+                                           bg='#FEF9E7', fg='#27AE60')
+        self.total_profit_label.pack(side='right', padx=15, pady=8)
+        
+        # Sales table
+        table_frame = tk.Frame(sales_frame, bg='#FFFFFF')
+        table_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        
+        columns = ('Product', 'Quantity', 'Selling Price', 'Cost Price', 'Profit', 'Time')
+        self.sales_tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=12)
+        
+        self.sales_tree.heading('Product', text='Product Name')
+        self.sales_tree.heading('Quantity', text='Quantity (KG)')
+        self.sales_tree.heading('Selling Price', text='Selling Price ($/KG)')
+        self.sales_tree.heading('Cost Price', text='Cost Price ($/KG)')
+        self.sales_tree.heading('Profit', text='Profit ($)')
+        self.sales_tree.heading('Time', text='Time')
+        
+        self.sales_tree.column('Product', width=150)
+        self.sales_tree.column('Quantity', width=100)
+        self.sales_tree.column('Selling Price', width=120)
+        self.sales_tree.column('Cost Price', width=120)
+        self.sales_tree.column('Profit', width=100)
+        self.sales_tree.column('Time', width=100)
+        
+        scrollbar = ttk.Scrollbar(table_frame, orient='vertical', command=self.sales_tree.yview)
+        self.sales_tree.configure(yscrollcommand=scrollbar.set)
+        
+        self.sales_tree.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+        
+        # Refresh button
+        tk.Button(sales_frame, text="REFRESH SALES", command=self.load_today_sales,
+                 bg='#3498DB', fg='white', font=("Segoe UI", 9, "bold"), 
+                 relief='flat', cursor='hand2', padx=15, pady=5).pack(pady=10)
+    
+    def load_products(self):
+        # Load supermarket products that have selling price set and stock > 0
+        products = get_all_supermarket_products()
+        # Only show products with stock > 0
+        self.product_list = {}
+        for p in products:
+            if p['quantity'] > 0:
+                self.product_list[p['name']] = p
+        self.product_select['values'] = list(self.product_list.keys())
+    
+    def on_product_select(self, event):
+        # When product is selected, show its details
+        product_name = self.product_select.get()
+        if product_name in self.product_list:
+            product = self.product_list[product_name]
+            self.available_label.config(text=f"{product['quantity']:.2f} KG")
+            self.cost_label.config(text=f"${product.get('cost_price', 0):.2f}")
             
-            def on_enter(e, b=btn): b.configure(bg='#D35400')
-            def on_leave(e, b=btn): b.configure(bg='#E67E22')
-            btn.bind("<Enter>", on_enter)
-            btn.bind("<Leave>", on_leave)
-        
-        # Logout button
-        logout_btn = tk.Button(nav_bar, text="LOGOUT", command=self.logout,
-                              bg='#C0392B', fg='white', font=("Segoe UI", 10, "bold"),
-                              relief='flat', cursor='hand2', padx=25, pady=8)
-        logout_btn.pack(side='right', padx=30)
-        
-        # Main content area
-        self.main_content = tk.Frame(self.root, bg='#F5F6FA')
-        self.main_content.pack(fill="both", expand=True, padx=25, pady=20)
+            # Pre-fill selling price if already set
+            selling_price = product.get('selling_price', 0)
+            if selling_price > 0:
+                self.selling_price_entry.delete(0, tk.END)
+                self.selling_price_entry.insert(0, f"{selling_price:.2f}")
+            
+            # Clear quantity and profit preview
+            self.quantity_entry.delete(0, tk.END)
+            self.profit_preview.config(text="$0.00")
     
-    def clear_content(self):
-        if self.current_frame:
-            self.current_frame.destroy()
+    def update_profit_preview(self, event=None):
+        # Calculate profit preview for the sale
+        try:
+            product_name = self.product_select.get()
+            if product_name in self.product_list:
+                cost = self.product_list[product_name].get('cost_price', 0)
+                selling = float(self.selling_price_entry.get().strip()) if self.selling_price_entry.get().strip() else 0
+                quantity = float(self.quantity_entry.get().strip()) if self.quantity_entry.get().strip() else 0
+                
+                profit = quantity * (selling - cost)
+                self.profit_preview.config(text=f"${profit:,.2f}")
+                
+                # Color code profit
+                if profit > 0:
+                    self.profit_preview.config(fg='#27AE60')
+                elif profit < 0:
+                    self.profit_preview.config(fg='#E74C3C')
+                else:
+                    self.profit_preview.config(fg='#7F8C8D')
+            else:
+                self.profit_preview.config(text="$0.00")
+        except:
+            self.profit_preview.config(text="$0.00")
     
-    def show_dashboard(self):
-        self.clear_content()
+    def record_sale(self):
+        # Record a sale in the database
+        product_name = self.product_select.get()
+        selling_price_str = self.selling_price_entry.get().strip()
+        quantity_str = self.quantity_entry.get().strip()
         
-        # Create dashboard frame
-        self.current_frame = tk.Frame(self.main_content, bg='#F5F6FA')
-        self.current_frame.pack(fill="both", expand=True)
+        # Validation
+        if not product_name:
+            messagebox.showerror("Error", "Please select a product")
+            return
         
-        # Hero Section
-        hero_frame = tk.Frame(self.current_frame, bg='#FFFFFF', relief='flat')
-        hero_frame.pack(fill="x", pady=(0, 20))
+        if not selling_price_str:
+            messagebox.showerror("Error", "Please enter selling price")
+            return
         
-        hero_bg = tk.Frame(hero_frame, bg='#E67E22', height=160)
-        hero_bg.pack(fill="x")
-        hero_bg.pack_propagate(False)
+        if not quantity_str:
+            messagebox.showerror("Error", "Please enter quantity sold")
+            return
         
-        hero_content = tk.Frame(hero_bg, bg='#E67E22')
-        hero_content.pack(expand=True, pady=25)
+        try:
+            selling_price = float(selling_price_str)
+            quantity = float(quantity_str)
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid numbers")
+            return
         
-        tk.Label(hero_content, text="WELCOME BACK", font=("Segoe UI", 11), 
-                bg='#E67E22', fg='#FAD7A1').pack()
-        tk.Label(hero_content, text=f"{self.user['fullname']}", font=("Segoe UI", 26, "bold"), 
-                bg='#E67E22', fg='white').pack()
-        tk.Label(hero_content, text="Supermarket Administrator Dashboard", font=("Segoe UI", 11), 
-                bg='#E67E22', fg='#FAD7A1').pack()
+        if quantity <= 0:
+            messagebox.showerror("Error", "Quantity must be greater than 0")
+            return
         
-        # Stats Cards
-        stats_frame = tk.Frame(self.current_frame, bg='#F5F6FA')
-        stats_frame.pack(fill="x", pady=20)
+        if selling_price <= 0:
+            messagebox.showerror("Error", "Selling price must be greater than 0")
+            return
         
-        # Card 1
-        card1 = tk.Frame(stats_frame, bg='#FFFFFF', relief='raised', bd=1, width=320, height=110)
-        card1.pack(side='left', padx=10, fill='x', expand=True)
-        card1.pack_propagate(False)
-        tk.Label(card1, text="PRODUCTS", font=("Segoe UI", 11), bg='#FFFFFF', fg='#7F8C8D').pack(pady=(15, 5))
-        tk.Label(card1, text="0", font=("Segoe UI", 28, "bold"), bg='#FFFFFF', fg='#E67E22').pack()
+        # Record the sale
+        success, message = record_sale(product_name, quantity, selling_price)
         
-        # Card 2
-        card2 = tk.Frame(stats_frame, bg='#FFFFFF', relief='raised', bd=1, width=320, height=110)
-        card2.pack(side='left', padx=10, fill='x', expand=True)
-        card2.pack_propagate(False)
-        tk.Label(card2, text="PENDING TRANSFERS", font=("Segoe UI", 11), bg='#FFFFFF', fg='#7F8C8D').pack(pady=(15, 5))
-        tk.Label(card2, text="0", font=("Segoe UI", 28, "bold"), bg='#FFFFFF', fg='#E67E22').pack()
-        
-        # Card 3
-        card3 = tk.Frame(stats_frame, bg='#FFFFFF', relief='raised', bd=1, width=320, height=110)
-        card3.pack(side='left', padx=10, fill='x', expand=True)
-        card3.pack_propagate(False)
-        tk.Label(card3, text="INVENTORY VALUE", font=("Segoe UI", 11), bg='#FFFFFF', fg='#7F8C8D').pack(pady=(15, 5))
-        tk.Label(card3, text="$0", font=("Segoe UI", 28, "bold"), bg='#FFFFFF', fg='#E67E22').pack()
-        
-        # Recent Activity
-        activity_frame = tk.Frame(self.current_frame, bg='#FFFFFF', relief='flat', bd=1)
-        activity_frame.pack(fill="both", expand=True, pady=20)
-        
-        tk.Label(activity_frame, text="RECENT ACTIVITY", font=("Segoe UI", 12, "bold"), 
-                bg='#FFFFFF', fg='#2C3E50').pack(anchor='w', padx=20, pady=15)
-        
-        activity_text = tk.Text(activity_frame, height=8, bg='#F8F9FA', fg='#5D4E37', 
-                               font=("Segoe UI", 10), relief='flat')
-        activity_text.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        activity_text.insert('1.0', "No recent activity yet\nUse the navigation menu to manage your inventory")
-        activity_text.configure(state='disabled')
+        if success:
+            messagebox.showinfo("Success", message)
+            
+            # Clear form after successful sale
+            self.quantity_entry.delete(0, tk.END)
+            self.selling_price_entry.delete(0, tk.END)
+            self.profit_preview.config(text="$0.00")
+            
+            # Refresh product list and sales display
+            self.load_products()
+            self.load_today_sales()
+            
+            # Refresh dashboard if callback exists
+            if self.refresh_callback:
+                self.refresh_callback()
+            
+            # Clear product selection
+            self.product_select.set('')
+            self.available_label.config(text="0 KG")
+            self.cost_label.config(text="$0.00")
+        else:
+            messagebox.showerror("Error", message)
     
-    def show_products(self):
-        self.clear_content()
-        self.current_frame = SupermarketProducts(self.main_content, self.user)
-        self.current_frame.pack(fill="both", expand=True)
-    
-    def show_receive(self):
-        self.clear_content()
-        self.current_frame = SupermarketReceive(self.main_content, self.user)
-        self.current_frame.pack(fill="both", expand=True)
-    
-    def show_transfers(self):
-        self.clear_content()
-        self.current_frame = SupermarketTransfers(self.main_content, self.user)
-        self.current_frame.pack(fill="both", expand=True)
-    
-    def show_profile(self):
-        self.clear_content()
-        self.current_frame = SupermarketProfile(self.main_content, self.user)
-        self.current_frame.pack(fill="both", expand=True)
-    
-    def logout(self):
-        if messagebox.askyesno("Logout", "Are you sure you want to logout?"):
-            self.root.destroy()
-            from auth import AuthWindow
-            root = tk.Tk()
-            AuthWindow(root)
-            root.mainloop()
+    def load_today_sales(self):
+        # Load today's sales into the table
+        for item in self.sales_tree.get_children():
+            self.sales_tree.delete(item)
+        
+        sales = get_today_sales()
+        
+        total_quantity = 0
+        total_profit = 0
+        
+        for sale in sales:
+            self.sales_tree.insert('', 'end', values=(
+                sale['product_name'],
+                f"{sale['quantity_sold']:.2f} KG",
+                f"${sale['selling_price']:.2f}",
+                f"${sale['cost_price']:.2f}",
+                f"${sale['profit']:.2f}",
+                sale['timestamp'].strftime('%H:%M')
+            ))
+            total_quantity += sale['quantity_sold']
+            total_profit += sale['profit']
+        
+        # Update summary labels
+        self.total_sales_label.config(text=f"Today's Total Sales: {total_quantity:.2f} KG")
+        self.total_profit_label.config(text=f"Today's Total Profit: ${total_profit:.2f}")
