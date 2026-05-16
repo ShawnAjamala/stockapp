@@ -95,7 +95,7 @@ class AuthWindow:
         self.reg_email = tk.Entry(container, width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
         self.reg_email.pack(fill="x", pady=(0, 10))
         
-        # Role
+        # Role – store simple names without "admin"
         tk.Label(container, text="Role:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
         self.reg_role = ttk.Combobox(container, values=["supermarket", "warehouse"])
         self.reg_role.pack(fill="x", pady=(0, 10))
@@ -163,7 +163,7 @@ class AuthWindow:
                 messagebox.showerror("Error", "Email already registered")
                 return
             
-            # Check role password (passwords are to be given by the main admin who made the site)
+            # Check role password
             if role == "supermarket" and password != SUPERMARKET_PASSWORD:
                 self.root.config(cursor="")
                 messagebox.showerror("Error", "Invalid role password")
@@ -192,14 +192,18 @@ class AuthWindow:
     
     def open_dashboard(self, user):
        #redirects to the specific dashboard depending on ones role
-        if user['role'] == 'supermarket':
+        role = user['role']
+        # Normalize role: accept both "supermarket" and "supermarket admin", etc.
+        if role in ["supermarket", "supermarket admin"]:
             dashboard_root = tk.Tk()
             SupermarketDashboard(dashboard_root, user)
             dashboard_root.mainloop()
-        else:
+        elif role in ["warehouse", "warehouse admin"]:
             dashboard_root = tk.Tk()
             WarehouseDashboard(dashboard_root, user)
             dashboard_root.mainloop()
+        else:
+            messagebox.showerror("Error", f"Unknown role: {role}")
 
 # Run app
 if __name__ == "__main__":

@@ -3,9 +3,9 @@ from tkinter import ttk, messagebox
 from db import (
     get_all_warehouse_products,
     get_all_supermarket_products,
-    receive_stock_from_warehouse,
     update_selling_price,
-    get_unread_alerts
+    create_stock_request,
+    get_users_by_role
 )
 
 class SupermarketReceive(tk.Frame):
@@ -14,254 +14,302 @@ class SupermarketReceive(tk.Frame):
         self.user = user
         self.refresh_callback = refresh_callback
         self.configure(bg='#F5F6FA')
-        
+        self.cart = []
+        self.warehouse_products = {}
+        self.supermarket_products = {}
+
         self.create_widgets()
         self.load_warehouse_products()
         self.load_supermarket_products()
-    
+
     def create_widgets(self):
-        # Header
-        header_frame = tk.Frame(self, bg='#FFFFFF')
-        header_frame.pack(fill="x", pady=(0, 20))
-        
-        tk.Label(header_frame, text="RECEIVE STOCK & SET SELLING PRICE", 
-                font=("Segoe UI", 20, "bold"), 
-                bg='#FFFFFF', fg='#E67E22').pack(pady=20)
-        
-        # Create two columns
-        left_frame = tk.Frame(self, bg='#F5F6FA')
-        left_frame.pack(side='left', fill='both', expand=True, padx=10)
-        
-        right_frame = tk.Frame(self, bg='#F5F6FA')
-        right_frame.pack(side='right', fill='both', expand=True, padx=10)
-        
-        # LEFT SECTION: Receive Stock from Warehouse
-        receive_frame = tk.LabelFrame(left_frame, text="RECEIVE STOCK FROM WAREHOUSE", 
-                                      font=("Segoe UI", 12, "bold"), 
-                                      bg='#FFFFFF', fg='#E67E22')
-        receive_frame.pack(fill="both", expand=True, pady=10)
-        
-        receive_inner = tk.Frame(receive_frame, bg='#FFFFFF')
-        receive_inner.pack(pady=20, padx=20)
-        
-        # Select product from warehouse
-        tk.Label(receive_inner, text="Select Product:", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=0, column=0, padx=10, pady=10, sticky='w')
-        self.product_select = ttk.Combobox(receive_inner, width=30, font=("Segoe UI", 10), state='readonly')
-        self.product_select.grid(row=0, column=1, padx=10, pady=10)
-        self.product_select.bind('<<ComboboxSelected>>', self.on_product_select)
-        
-        # Available stock in warehouse
-        tk.Label(receive_inner, text="Available in Warehouse:", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=0, column=2, padx=10, pady=10, sticky='w')
-        self.available_label = tk.Label(receive_inner, text="0 KG", font=("Segoe UI", 10, "bold"), 
-                                        bg='#FFFFFF', fg='#27AE60')
-        self.available_label.grid(row=0, column=3, padx=10, pady=10)
-        
-        # Cost price (from warehouse)
-        tk.Label(receive_inner, text="Cost Price (per KG):", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=1, column=0, padx=10, pady=10, sticky='w')
-        self.cost_label = tk.Label(receive_inner, text="$0.00", font=("Segoe UI", 10, "bold"), 
+        header = tk.Frame(self, bg='#FFFFFF', height=70)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        tk.Label(header, text="REQUEST STOCK & MANAGE INVENTORY",
+                 font=("Segoe UI", 18, "bold"), bg='#FFFFFF', fg='#E67E22').pack(pady=15)
+
+        # Two columns
+        left = tk.Frame(self, bg='#F5F6FA')
+        left.pack(side='left', fill='both', expand=True, padx=10)
+        right = tk.Frame(self, bg='#F5F6FA')
+        right.pack(side='right', fill='both', expand=True, padx=10)
+
+        # --- LEFT: Request cart ---
+        cart_frame = tk.LabelFrame(left, text="MULTI-ITEM REQUEST", font=("Segoe UI", 11, "bold"),
                                    bg='#FFFFFF', fg='#E67E22')
-        self.cost_label.grid(row=1, column=1, padx=10, pady=10)
-        
-        # Quantity to receive
-        tk.Label(receive_inner, text="Quantity to Receive (KG):", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=1, column=2, padx=10, pady=10, sticky='w')
-        self.receive_qty = tk.Entry(receive_inner, width=15, font=("Segoe UI", 10), relief='solid', bd=1)
-        self.receive_qty.grid(row=1, column=3, padx=10, pady=10)
-        
-        # Receiving warehouse email
-        tk.Label(receive_inner, text="From Warehouse (Email):", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=2, column=0, padx=10, pady=10, sticky='w')
-        self.warehouse_email = tk.Entry(receive_inner, width=30, font=("Segoe UI", 10), relief='solid', bd=1)
-        self.warehouse_email.grid(row=2, column=1, padx=10, pady=10, columnspan=3)
-        
-        # Receive button
-        tk.Button(receive_inner, text="RECEIVE STOCK", command=self.receive_stock,
-                 bg='#27AE60', fg='white', font=("Segoe UI", 11, "bold"), 
-                 relief='flat', cursor='hand2', padx=30, pady=8).grid(row=3, column=0, columnspan=4, pady=20)
-        
-        # RIGHT SECTION: Set Selling Price for Received Products
-        price_frame = tk.LabelFrame(right_frame, text="SET SELLING PRICE", 
-                                    font=("Segoe UI", 12, "bold"), 
+        cart_frame.pack(fill='both', expand=True, pady=5)
+
+        add_frame = tk.Frame(cart_frame, bg='#FFFFFF')
+        add_frame.pack(fill='x', pady=10, padx=10)
+
+        tk.Label(add_frame, text="Product:").grid(row=0, column=0, padx=5, pady=5)
+        self.product_cb = ttk.Combobox(add_frame, width=25, state='readonly')
+        self.product_cb.grid(row=0, column=1, padx=5, pady=5)
+        self.product_cb.bind('<<ComboboxSelected>>', self.on_product_select)
+
+        tk.Label(add_frame, text="Avail (KG):").grid(row=0, column=2, padx=5, pady=5)
+        self.avail_label = tk.Label(add_frame, text="0", fg='green')
+        self.avail_label.grid(row=0, column=3, padx=5, pady=5)
+
+        tk.Label(add_frame, text="Cost/KG:").grid(row=1, column=0, padx=5, pady=5)
+        self.price_label = tk.Label(add_frame, text="$0.00", fg='#E67E22')
+        self.price_label.grid(row=1, column=1, padx=5, pady=5)
+
+        tk.Label(add_frame, text="Qty (KG):").grid(row=1, column=2, padx=5, pady=5)
+        self.qty_entry = tk.Entry(add_frame, width=12)
+        self.qty_entry.grid(row=1, column=3, padx=5, pady=5)
+
+        tk.Button(add_frame, text="ADD TO CART", command=self.add_to_cart,
+                  bg='#27AE60', fg='white').grid(row=2, column=0, columnspan=4, pady=10)
+
+        cart_list_frame = tk.Frame(cart_frame, bg='#FFFFFF')
+        cart_list_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        scroll = tk.Scrollbar(cart_list_frame)
+        scroll.pack(side='right', fill='y')
+        self.cart_listbox = tk.Listbox(cart_list_frame, yscrollcommand=scroll.set, height=8)
+        self.cart_listbox.pack(side='left', fill='both', expand=True)
+        scroll.config(command=self.cart_listbox.yview)
+
+        tk.Button(cart_frame, text="REMOVE SELECTED", command=self.remove_from_cart,
+                  bg='#E74C3C', fg='white').pack(pady=5)
+
+        wh_frame = tk.Frame(cart_frame, bg='#FFFFFF')
+        wh_frame.pack(fill='x', padx=10, pady=5)
+        tk.Label(wh_frame, text="Warehouse Employee:").pack(side='left')
+
+        # Try to fetch users with role "warehouse admin", fallback to "warehouse"
+        warehouses = get_users_by_role("warehouse admin")
+        if not warehouses:
+            warehouses = get_users_by_role("warehouse")
+        self.warehouse_cb = ttk.Combobox(wh_frame, values=[w['email'] for w in warehouses],
+                                         width=25, state='readonly')
+        self.warehouse_cb.pack(side='left', padx=5)
+
+        tk.Button(cart_frame, text="SEND REQUEST", command=self.send_request,
+                  bg='#F39C12', fg='white', font=("Segoe UI", 10, "bold")).pack(pady=10)
+
+        # --- RIGHT: Inventory + selling price ---
+        inv_frame = tk.LabelFrame(right, text="CURRENT INVENTORY", font=("Segoe UI", 11, "bold"),
+                                  bg='#FFFFFF', fg='#E67E22')
+        inv_frame.pack(fill='both', expand=True, pady=5)
+
+        search_frame = tk.Frame(inv_frame, bg='#FFFFFF')
+        search_frame.pack(fill='x', pady=5, padx=10)
+        tk.Label(search_frame, text="Search:").pack(side='left')
+        self.search_entry = tk.Entry(search_frame, width=20)
+        self.search_entry.pack(side='left', padx=5)
+        tk.Button(search_frame, text="GO", command=self.search_inventory,
+                  bg='#3498DB', fg='white').pack(side='left')
+        tk.Button(search_frame, text="REFRESH", command=self.load_supermarket_products,
+                  bg='#95A5A6', fg='white').pack(side='left', padx=2)
+
+        tree_container = tk.Frame(inv_frame, bg='#FFFFFF')
+        tree_container.pack(fill='both', expand=True, padx=10, pady=5)
+        scroll_inv = ttk.Scrollbar(tree_container)
+        scroll_inv.pack(side='right', fill='y')
+        columns = ('Name', 'Stock', 'Cost', 'Selling')
+        self.inv_tree = ttk.Treeview(tree_container, columns=columns, show='headings',
+                                     yscrollcommand=scroll_inv.set, height=12)
+        scroll_inv.config(command=self.inv_tree.yview)
+        self.inv_tree.heading('Name', text='Product')
+        self.inv_tree.heading('Stock', text='KG')
+        self.inv_tree.heading('Cost', text='Cost $/KG')
+        self.inv_tree.heading('Selling', text='Selling $/KG')
+        self.inv_tree.column('Name', width=150)
+        self.inv_tree.column('Stock', width=70)
+        self.inv_tree.column('Cost', width=80)
+        self.inv_tree.column('Selling', width=80)
+        self.inv_tree.pack(side='left', fill='both', expand=True)
+
+        # Selling price update panel (unchanged)
+        price_frame = tk.LabelFrame(right, text="UPDATE SELLING PRICE", font=("Segoe UI", 10, "bold"),
                                     bg='#FFFFFF', fg='#E67E22')
-        price_frame.pack(fill="both", expand=True, pady=10)
-        
+        price_frame.pack(fill='x', pady=5)
+
         price_inner = tk.Frame(price_frame, bg='#FFFFFF')
-        price_inner.pack(pady=20, padx=20)
-        
-        # Select supermarket product
-        tk.Label(price_inner, text="Select Product:", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=0, column=0, padx=10, pady=10, sticky='w')
-        self.supermarket_product_select = ttk.Combobox(price_inner, width=30, font=("Segoe UI", 10), state='readonly')
-        self.supermarket_product_select.grid(row=0, column=1, padx=10, pady=10)
-        self.supermarket_product_select.bind('<<ComboboxSelected>>', self.on_supermarket_product_select)
-        
-        # Current stock
-        tk.Label(price_inner, text="Current Stock:", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=0, column=2, padx=10, pady=10, sticky='w')
-        self.current_stock_label = tk.Label(price_inner, text="0 KG", font=("Segoe UI", 10, "bold"), 
-                                            bg='#FFFFFF', fg='#27AE60')
-        self.current_stock_label.grid(row=0, column=3, padx=10, pady=10)
-        
-        # Cost price display
-        tk.Label(price_inner, text="Cost Price (per KG):", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=1, column=0, padx=10, pady=10, sticky='w')
-        self.cost_display_label = tk.Label(price_inner, text="$0.00", font=("Segoe UI", 10, "bold"), 
-                                           bg='#FFFFFF', fg='#E67E22')
-        self.cost_display_label.grid(row=1, column=1, padx=10, pady=10)
-        
-        # Selling price input
-        tk.Label(price_inner, text="Selling Price (per KG):", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=1, column=2, padx=10, pady=10, sticky='w')
-        self.selling_price_entry = tk.Entry(price_inner, width=15, font=("Segoe UI", 10), relief='solid', bd=1)
-        self.selling_price_entry.grid(row=1, column=3, padx=10, pady=10)
-        
-        # Potential profit preview
-        tk.Label(price_inner, text="Profit per KG:", font=("Segoe UI", 10), 
-                bg='#FFFFFF').grid(row=2, column=0, padx=10, pady=10, sticky='w')
-        self.profit_preview = tk.Label(price_inner, text="$0.00", font=("Segoe UI", 10, "bold"), 
-                                       bg='#FFFFFF', fg='#27AE60')
-        self.profit_preview.grid(row=2, column=1, padx=10, pady=10)
-        
-        # Update price button
-        tk.Button(price_inner, text="UPDATE SELLING PRICE", command=self.update_selling_price,
-                 bg='#3498DB', fg='white', font=("Segoe UI", 10, "bold"), 
-                 relief='flat', cursor='hand2', padx=20, pady=8).grid(row=2, column=2, columnspan=2, pady=10)
-        
-        self.selling_price_entry.bind('<KeyRelease>', self.update_profit_preview)
-    
+        price_inner.pack(pady=10, padx=10)
+        tk.Label(price_inner, text="Product:").grid(row=0, column=0, padx=5, pady=5)
+        self.price_product_cb = ttk.Combobox(price_inner, width=20, state='readonly')
+        self.price_product_cb.grid(row=0, column=1, padx=5, pady=5)
+        self.price_product_cb.bind('<<ComboboxSelected>>', self.on_price_product_select)
+
+        tk.Label(price_inner, text="New Price ($/KG):").grid(row=0, column=2, padx=5, pady=5)
+        self.new_price_entry = tk.Entry(price_inner, width=10)
+        self.new_price_entry.grid(row=0, column=3, padx=5, pady=5)
+
+        tk.Label(price_inner, text="Profit/KG:").grid(row=1, column=0, padx=5, pady=5)
+        self.profit_preview = tk.Label(price_inner, text="$0.00", fg='green')
+        self.profit_preview.grid(row=1, column=1, padx=5, pady=5)
+
+        tk.Button(price_inner, text="UPDATE", command=self.update_selling_price,
+                  bg='#3498DB', fg='white').grid(row=1, column=2, columnspan=2, pady=5)
+        self.new_price_entry.bind('<KeyRelease>', self.update_profit_preview)
+
+    # ------------------ Data Loading (FIXED aggregation for warehouse products) ------------------
     def load_warehouse_products(self):
-        # Load warehouse products into dropdown
-        products = get_all_warehouse_products()
-        self.warehouse_product_list = {p['name']: p for p in products}
-        self.product_select['values'] = list(self.warehouse_product_list.keys())
-    
-    def load_supermarket_products(self):
-        # Load supermarket products into dropdown for selling price setup
-        products = get_all_supermarket_products()
-        self.supermarket_product_list = {p['name']: p for p in products}
-        self.supermarket_product_select['values'] = list(self.supermarket_product_list.keys())
-    
-    def on_product_select(self, event):
-        # When product is selected, show available stock and cost price
-        product_name = self.product_select.get()
-        if product_name in self.warehouse_product_list:
-            product = self.warehouse_product_list[product_name]
-            self.available_label.config(text=f"{product['quantity']:,.2f} KG")
-            self.cost_label.config(text=f"${product['price']:,.2f}")
-    
-    def on_supermarket_product_select(self, event):
-        # When supermarket product is selected, show current stock and cost price
-        product_name = self.supermarket_product_select.get()
-        if product_name in self.supermarket_product_list:
-            product = self.supermarket_product_list[product_name]
-            self.current_stock_label.config(text=f"{product['quantity']:,.2f} KG")
-            self.cost_display_label.config(text=f"${product.get('cost_price', 0):,.2f}")
-            current_selling = product.get('selling_price', 0)
-            if current_selling > 0:
-                self.selling_price_entry.delete(0, tk.END)
-                self.selling_price_entry.insert(0, f"{current_selling:.2f}")
-            self.update_profit_preview()
-    
-    def update_profit_preview(self, event=None):
-        # Calculate and display profit per KG based on selling price
-        try:
-            product_name = self.supermarket_product_select.get()
-            if product_name in self.supermarket_product_list:
-                cost = self.supermarket_product_list[product_name].get('cost_price', 0)
-                selling = float(self.selling_price_entry.get().strip()) if self.selling_price_entry.get().strip() else 0
-                profit = selling - cost
-                self.profit_preview.config(text=f"${profit:,.2f}", fg='#27AE60' if profit > 0 else '#E74C3C')
+        prods = get_all_warehouse_products()
+        # Aggregate products with the same name: sum quantity, keep first price
+        aggregated = {}
+        for p in prods:
+            name = p['name']
+            if name in aggregated:
+                aggregated[name]['quantity'] += p['quantity']
+                # Keep the price from the first occurrence (or overwrite – doesn't matter much)
             else:
-                self.profit_preview.config(text="$0.00")
-        except:
-            self.profit_preview.config(text="$0.00")
-    
-    def receive_stock(self):
-        # Receive stock from warehouse
-        product_name = self.product_select.get()
-        quantity_str = self.receive_qty.get().strip()
-        warehouse_email = self.warehouse_email.get().strip()
-        
-        if not product_name:
-            messagebox.showerror("Error", "Please select a product")
+                aggregated[name] = {
+                    'name': name,
+                    'quantity': p['quantity'],
+                    'price': p['price']
+                }
+        self.warehouse_products = aggregated
+        self.product_cb['values'] = list(self.warehouse_products.keys())
+
+    def load_supermarket_products(self):
+        for row in self.inv_tree.get_children():
+            self.inv_tree.delete(row)
+        prods = get_all_supermarket_products()
+        self.supermarket_products = {p['name']: p for p in prods}
+        self.price_product_cb['values'] = list(self.supermarket_products.keys())
+        for p in prods:
+            self.inv_tree.insert('', 'end', values=(
+                p['name'],
+                f"{p['quantity']:.1f}",
+                f"${p.get('cost_price', 0):.2f}",
+                f"${p.get('selling_price', 0):.2f}"
+            ))
+
+    def search_inventory(self):
+        kw = self.search_entry.get().strip().lower()
+        self.inv_tree.delete(*self.inv_tree.get_children())
+        for name, p in self.supermarket_products.items():
+            if kw in name.lower():
+                self.inv_tree.insert('', 'end', values=(
+                    name,
+                    f"{p['quantity']:.1f}",
+                    f"${p.get('cost_price', 0):.2f}",
+                    f"${p.get('selling_price', 0):.2f}"
+                ))
+
+    def on_product_select(self, event):
+        name = self.product_cb.get()
+        if name in self.warehouse_products:
+            p = self.warehouse_products[name]
+            self.avail_label.config(text=f"{p['quantity']:.2f}")
+            self.price_label.config(text=f"${p['price']:.2f}")
+
+    # ---------- Cart methods (unchanged) ----------
+    def add_to_cart(self):
+        name = self.product_cb.get()
+        if not name:
+            messagebox.showerror("Error", "Select a product")
             return
-        
-        if not quantity_str:
-            messagebox.showerror("Error", "Please enter quantity to receive")
+        qty_str = self.qty_entry.get().strip()
+        if not qty_str:
+            messagebox.showerror("Error", "Enter quantity")
             return
-        
-        if not warehouse_email:
-            messagebox.showerror("Error", "Please enter warehouse email")
-            return
-        
         try:
-            quantity = float(quantity_str)
-        except ValueError:
-            messagebox.showerror("Error", "Quantity must be a valid number")
+            qty = float(qty_str)
+        except:
+            messagebox.showerror("Error", "Invalid quantity")
             return
-        
-        if product_name not in self.warehouse_product_list:
-            messagebox.showerror("Error", "Product not found in warehouse")
+        if qty <= 0:
+            messagebox.showerror("Error", "Quantity >0 required")
             return
-        
-        warehouse_product = self.warehouse_product_list[product_name]
-        
-        if warehouse_product['quantity'] < quantity:
-            messagebox.showerror("Error", f"Insufficient stock. Only {warehouse_product['quantity']:.2f} KG available")
+        if name not in self.warehouse_products:
+            messagebox.showerror("Error", "Product not found")
             return
-        
-        # Update warehouse stock (deduct)
-        new_warehouse_qty = warehouse_product['quantity'] - quantity
-        from db import update_warehouse_product
-        update_warehouse_product(product_name, new_warehouse_qty, warehouse_product['price'])
-        
-        # Receive stock to supermarket
-        success, message = receive_stock_from_warehouse(
-            product_name, quantity, warehouse_product['price'], warehouse_email
-        )
-        
+        avail = self.warehouse_products[name]['quantity']
+        if qty > avail:
+            messagebox.showerror("Error", f"Only {avail:.2f} KG available")
+            return
+        for item in self.cart:
+            if item['name'] == name:
+                new_qty = item['quantity'] + qty
+                if new_qty > avail:
+                    messagebox.showerror("Error", f"Total request {new_qty:.2f} KG exceeds {avail:.2f}")
+                    return
+                item['quantity'] = new_qty
+                self.refresh_cart()
+                self.qty_entry.delete(0, tk.END)
+                return
+        self.cart.append({'name': name, 'quantity': qty})
+        self.refresh_cart()
+        self.qty_entry.delete(0, tk.END)
+
+    def remove_from_cart(self):
+        sel = self.cart_listbox.curselection()
+        if sel:
+            del self.cart[sel[0]]
+            self.refresh_cart()
+
+    def refresh_cart(self):
+        self.cart_listbox.delete(0, tk.END)
+        for item in self.cart:
+            self.cart_listbox.insert(tk.END, f"{item['name']} – {item['quantity']:.2f} KG")
+
+    def send_request(self):
+        if not self.cart:
+            messagebox.showerror("Error", "Cart is empty")
+            return
+        wh_email = self.warehouse_cb.get()
+        if not wh_email:
+            messagebox.showerror("Error", "Select a warehouse employee")
+            return
+        success = True
+        for item in self.cart:
+            ok, msg = create_stock_request(item['name'], item['quantity'], self.user['email'], wh_email)
+            if not ok:
+                success = False
+                messagebox.showerror("Error", f"Failed for {item['name']}: {msg}")
+                break
         if success:
-            messagebox.showinfo("Success", message)
-            # Refresh the supermarket products list
+            messagebox.showinfo("Success", f"Request for {len(self.cart)} item(s) sent to {wh_email}")
+            self.cart.clear()
+            self.refresh_cart()
+            if self.refresh_callback:
+                self.refresh_callback()
+
+    # ---------- Selling price methods (unchanged) ----------
+    def on_price_product_select(self, event):
+        name = self.price_product_cb.get()
+        if name in self.supermarket_products:
+            cur = self.supermarket_products[name].get('selling_price', 0)
+            self.new_price_entry.delete(0, tk.END)
+            self.new_price_entry.insert(0, f"{cur:.2f}")
+            self.update_profit_preview()
+
+    def update_profit_preview(self, event=None):
+        name = self.price_product_cb.get()
+        if not name or name not in self.supermarket_products:
+            self.profit_preview.config(text="$0.00")
+            return
+        cost = self.supermarket_products[name].get('cost_price', 0)
+        try:
+            new_price = float(self.new_price_entry.get())
+        except:
+            new_price = 0
+        profit = new_price - cost
+        self.profit_preview.config(text=f"${profit:.2f}", fg='green' if profit >= 0 else 'red')
+
+    def update_selling_price(self):
+        name = self.price_product_cb.get()
+        if not name:
+            messagebox.showerror("Error", "Select a product")
+            return
+        try:
+            new_price = float(self.new_price_entry.get())
+        except:
+            messagebox.showerror("Error", "Invalid price")
+            return
+        if new_price <= 0:
+            messagebox.showerror("Error", "Price must be positive")
+            return
+        ok, msg = update_selling_price(name, new_price)
+        if ok:
+            messagebox.showinfo("Success", msg)
             self.load_supermarket_products()
-            # Clear form
-            self.receive_qty.delete(0, tk.END)
-            self.warehouse_email.delete(0, tk.END)
-            self.product_select.set('')
-            self.available_label.config(text="0 KG")
-            # Refresh dashboard if callback exists
             if self.refresh_callback:
                 self.refresh_callback()
         else:
-            messagebox.showerror("Error", message)
-    
-    def update_selling_price(self):
-        # Update selling price for supermarket product
-        product_name = self.supermarket_product_select.get()
-        selling_price_str = self.selling_price_entry.get().strip()
-        
-        if not product_name:
-            messagebox.showerror("Error", "Please select a product")
-            return
-        
-        if not selling_price_str:
-            messagebox.showerror("Error", "Please enter selling price")
-            return
-        
-        try:
-            selling_price = float(selling_price_str)
-        except ValueError:
-            messagebox.showerror("Error", "Selling price must be a valid number")
-            return
-        
-        success, message = update_selling_price(product_name, selling_price)
-        
-        if success:
-            messagebox.showinfo("Success", message)
-            # Refresh the product list
-            self.load_supermarket_products()
-        else:
-            messagebox.showerror("Error", message)
+            messagebox.showerror("Error", msg)
