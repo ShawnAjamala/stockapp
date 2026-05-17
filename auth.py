@@ -35,7 +35,7 @@ class AuthWindow:
         tk.Label(header, text="FRESHSTOCK MANAGER", 
                 font=("Arial", 14, "bold"), bg='#E67E22', fg='white').pack(pady=35)
         
-        # Tabs
+        # Tabs (notebook) to switch between Login and Register
         style = ttk.Style()
         style.configure('TNotebook', background='#FFF8F0')
         style.configure('TNotebook.Tab', font=('Arial', 10, 'bold'), padding=[10, 5])
@@ -61,16 +61,18 @@ class AuthWindow:
         tk.Label(container, text="Welcome Back", font=("Arial", 12, "bold"), 
                 bg='#FFFFFF', fg='#E67E22').pack(pady=(0, 20))
         
-        # Email
+        # Email field
         tk.Label(container, text="Email:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
         self.login_email = tk.Entry(container, width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
         self.login_email.pack(fill="x", pady=(0, 15))
+        # Pressing Enter triggers login
         self.login_email.bind('<Return>', lambda e: self.login())
         
-        # Password
+        # Password field
         tk.Label(container, text="Password:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
         self.login_password = tk.Entry(container, show="*", width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
         self.login_password.pack(fill="x", pady=(0, 20))
+        # Pressing Enter triggers login
         self.login_password.bind('<Return>', lambda e: self.login())
         
         # Login button
@@ -85,22 +87,22 @@ class AuthWindow:
         tk.Label(container, text="Create Account", font=("Arial", 12, "bold"), 
                 bg='#FFFFFF', fg='#E67E22').pack(pady=(0, 20))
         
-        # Full Name
+        # Full Name field
         tk.Label(container, text="Full Name:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
         self.reg_name = tk.Entry(container, width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
         self.reg_name.pack(fill="x", pady=(0, 10))
         
-        # Email
+        # Email field
         tk.Label(container, text="Email:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
         self.reg_email = tk.Entry(container, width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
         self.reg_email.pack(fill="x", pady=(0, 10))
         
-        # Role – store simple names without "admin"
+        # Role selection – values are simple: "supermarket" or "warehouse"
         tk.Label(container, text="Role:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
         self.reg_role = ttk.Combobox(container, values=["supermarket", "warehouse"])
         self.reg_role.pack(fill="x", pady=(0, 10))
         
-        # Role Password
+        # Role Password (predefined constant from db)
         tk.Label(container, text="Role Password:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
         self.reg_password = tk.Entry(container, show="*", width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
         self.reg_password.pack(fill="x", pady=(0, 20))
@@ -118,14 +120,16 @@ class AuthWindow:
             messagebox.showerror("Error", "Please enter email and password")
             return
         
-        # Show loading message
+        # Show loading cursor
         self.root.config(cursor="watch")
         self.root.update()
         
         try:
+            # Query database for matching email and hashed password
             user = find_user_by_email_and_password(email, password)
             
             if user:
+                # Login successful – show welcome and open the role‑specific dashboard
                 messagebox.showinfo("Success", f"Welcome {user['fullname']}!\nRole: {user['role']}")
                 self.root.config(cursor="")
                 self.root.destroy()
@@ -152,18 +156,18 @@ class AuthWindow:
             messagebox.showerror("Error", "Invalid email format")
             return
         
-        # Show loading message
+        # Show loading cursor
         self.root.config(cursor="watch")
         self.root.update()
         
         try:
-            # Check if email exists
+            # Check if email already exists
             if find_user_by_email(email):
                 self.root.config(cursor="")
                 messagebox.showerror("Error", "Email already registered")
                 return
             
-            # Check role password
+            # Verify role password against the constants from db
             if role == "supermarket" and password != SUPERMARKET_PASSWORD:
                 self.root.config(cursor="")
                 messagebox.showerror("Error", "Invalid role password")
@@ -173,12 +177,12 @@ class AuthWindow:
                 messagebox.showerror("Error", "Invalid role password")
                 return
             
-            # Create user
+            # Create user in database
             create_user(email, password, name, role)
             self.root.config(cursor="")
             messagebox.showinfo("Success", f"User {name} registered successfully!")
             
-            # Clear fields
+            # Clear form fields
             self.reg_name.delete(0, tk.END)
             self.reg_email.delete(0, tk.END)
             self.reg_role.set('')

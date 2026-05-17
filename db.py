@@ -121,9 +121,7 @@ def create_warehouse_product(product_name, quantity, price):
         }
         products.insert_one(product_data)
 
-        # FIX: Only log the movement for audit purposes — do NOT call record_stock_movement
-        # because that function would ADD quantity on top of what was just inserted,
-        # doubling the stock. We log directly here instead.
+
         movement_data = {
             "product_name": product_name,
             "movement_type": "IN",
@@ -313,9 +311,6 @@ def approve_stock_request(request_id, warehouse_email):
             {"$set": {"quantity": new_warehouse_qty, "updated_at": datetime.now()}}
         )
 
-        # FIX: Only insert ONE movement/transfer record here.
-        # The old code inserted a manual movement_data AND then called create_transfer()
-        # at the end, resulting in two records for the same transfer.
         movement_data = {
             "product_name": product_name,
             "movement_type": "OUT",
@@ -361,9 +356,6 @@ def approve_stock_request(request_id, warehouse_email):
             {"$set": {"processed": True, "read": True,
                       "approved_by": warehouse_email, "approved_at": datetime.now()}}
         )
-
-        # FIX: Removed the duplicate create_transfer() call that was here before.
-        # The movement_data insertion above already captures the full transfer record.
 
         create_notification(supermarket_email, "Stock Request Approved",
                             f"Your request for {quantity} KG of {product_name} has been approved and sent", "approved")

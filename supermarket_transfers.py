@@ -4,39 +4,46 @@ from bson import ObjectId
 from pymongo import MongoClient
 import csv
 
+# Connect directly to MongoDB (separate from the main db.py module)
 client = MongoClient("mongodb+srv://shawnajamala1_db_user:LlLBJrjkXIyn5bGh@cluster0.yqqbhoe.mongodb.net/?appName=Cluster0")
 db = client.supermarket_storage
 
-
 class SupermarketTransfers(tk.Frame):
+    # Displays incoming stock transfers (from warehouse) and outgoing sales records
     def __init__(self, parent, user, refresh_callback=None):
         super().__init__(parent)
-        self.user = user
-        self.refresh_callback = refresh_callback
+        self.user = user                        # logged‑in supermarket admin
+        self.refresh_callback = refresh_callback  # callback to refresh dashboard stats
         self.configure(bg='#F5F6FA')
-        self._in_ids = []
-        self._out_ids = []
+        self._in_ids = []   # store tuples (treeview_id, db_id) for incoming records
+        self._out_ids = []  # same for outgoing (sales) records
 
         self.create_widgets()
         self.load_incoming()
         self.load_outgoing()
 
+    # Build the two‑tab interface
     def create_widgets(self):
+        # Header
         header = tk.Frame(self, bg='#FFFFFF', height=70)
         header.pack(fill="x")
         header.pack_propagate(False)
         tk.Label(header, text="SUPERMARKET TRANSFERS",
                  font=("Segoe UI", 18, "bold"), bg='#FFFFFF', fg='#E67E22').pack(pady=15)
 
+        # Notebook (tabbed pane)
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill='both', expand=True, padx=10, pady=5)
 
+        # Tab 1 – Incoming (stock received from warehouse)
         self.incoming_tab = tk.Frame(self.notebook, bg='#F5F6FA')
         self.notebook.add(self.incoming_tab, text='  INCOMING  (From Warehouse)  ')
 
+        # Tab 2 – Outgoing (sales recorded by supermarket)
         self.outgoing_tab = tk.Frame(self.notebook, bg='#F5F6FA')
         self.notebook.add(self.outgoing_tab, text='  OUTGOING  (Sales)  ')
 
+        # Build the individual tabs
         self._build_incoming_tab()
         self._build_outgoing_tab()
 
@@ -44,6 +51,7 @@ class SupermarketTransfers(tk.Frame):
     def _build_incoming_tab(self):
         tab = self.incoming_tab
 
+        # Control bar with action buttons
         ctrl = tk.Frame(tab, bg='#F5F6FA')
         ctrl.pack(fill='x', padx=10, pady=8)
         tk.Button(ctrl, text="REFRESH", command=self.load_incoming,
@@ -53,6 +61,7 @@ class SupermarketTransfers(tk.Frame):
         tk.Button(ctrl, text="EXPORT CSV", command=self.export_incoming_csv,
                   bg='#27AE60', fg='white', font=("Segoe UI", 9, "bold"), relief='flat', padx=10).pack(side='left', padx=4)
 
+        # Treeview container with scrollbars
         container = tk.Frame(tab, bg='#FFFFFF')
         container.pack(fill='both', expand=True, padx=10, pady=5)
         container.columnconfigure(0, weight=1)
@@ -71,10 +80,12 @@ class SupermarketTransfers(tk.Frame):
         v.config(command=self.in_tree.yview)
         h.config(command=self.in_tree.xview)
 
+        # Set column widths
         for col, w in zip(cols, [150, 200, 120, 140, 200]):
             self.in_tree.heading(col, text=col)
             self.in_tree.column(col, width=w)
 
+        # Status label and summary bar
         self.in_status = tk.Label(tab, text="", bg='#F5F6FA', fg='green', font=("Segoe UI", 9))
         self.in_status.pack(pady=2)
         self.in_summary = tk.Label(tab, text="", bg='#EBF5FB', fg='#2471A3',
@@ -85,6 +96,7 @@ class SupermarketTransfers(tk.Frame):
     def _build_outgoing_tab(self):
         tab = self.outgoing_tab
 
+        # Control bar
         ctrl = tk.Frame(tab, bg='#F5F6FA')
         ctrl.pack(fill='x', padx=10, pady=8)
         tk.Button(ctrl, text="REFRESH", command=self.load_outgoing,
@@ -94,6 +106,7 @@ class SupermarketTransfers(tk.Frame):
         tk.Button(ctrl, text="EXPORT CSV", command=self.export_outgoing_csv,
                   bg='#27AE60', fg='white', font=("Segoe UI", 9, "bold"), relief='flat', padx=10).pack(side='left', padx=4)
 
+        # Treeview container with scrollbars
         container = tk.Frame(tab, bg='#FFFFFF')
         container.pack(fill='both', expand=True, padx=10, pady=5)
         container.columnconfigure(0, weight=1)
@@ -116,6 +129,7 @@ class SupermarketTransfers(tk.Frame):
             self.out_tree.heading(col, text=col)
             self.out_tree.column(col, width=w)
 
+        # Status label and summary bar
         self.out_status = tk.Label(tab, text="", bg='#F5F6FA', fg='green', font=("Segoe UI", 9))
         self.out_status.pack(pady=2)
         self.out_summary = tk.Label(tab, text="", bg='#EAFAF1', fg='#1E8449',
@@ -124,17 +138,18 @@ class SupermarketTransfers(tk.Frame):
 
     # ── LOAD DATA ─────────────────────────────────
     def load_incoming(self):
+        # Clear existing treeview rows and ID mapping
         for row in self.in_tree.get_children():
             self.in_tree.delete(row)
         self._in_ids = []
 
-        # Incoming = warehouse OUT transfers that were approved requests going to supermarket
+        # Incoming = warehouse OUT transfers that were approved requests sent to this supermarket
         records = list(db.transfers.find({
             "movement_type": "OUT",
             "notes": {"$regex": "Approved request", "$options": "i"}
         }).sort("timestamp", -1))
 
-        # Also include legacy transfers with to_email but no movement_type
+        # Also include legacy transfers that have a to_email but no movement_type
         legacy = list(db.transfers.find({
             "to_email": {"$exists": True},
             "movement_type": {"$exists": False}
@@ -142,13 +157,14 @@ class SupermarketTransfers(tk.Frame):
 
         total_kg = 0.0
         for r in records + legacy:
-            # Try to get the warehouse product's price for display
+            # Determine the cost price (from the warehouse product if not directly available)
             cost = r.get('price', r.get('cost_price', 0))
             if cost == 0:
                 wp = db.products.find_one({"name": r.get('product_name'), "type": "warehouse"})
                 if wp:
                     cost = wp.get('price', 0)
 
+            # Insert into treeview
             iid = self.in_tree.insert('', 'end', values=(
                 r['timestamp'].strftime('%Y-%m-%d %H:%M'),
                 r.get('product_name', '—'),
@@ -169,10 +185,12 @@ class SupermarketTransfers(tk.Frame):
         )
 
     def load_outgoing(self):
+        # Clear existing treeview rows and ID mapping
         for row in self.out_tree.get_children():
             self.out_tree.delete(row)
         self._out_ids = []
 
+        # Get all sales from the sales collection
         sales = list(db.sales.find({}).sort("timestamp", -1))
         total_kg = 0.0
         total_profit = 0.0
@@ -204,6 +222,7 @@ class SupermarketTransfers(tk.Frame):
 
     # ── DELETE ────────────────────────────────────
     def delete_incoming(self):
+        # Delete selected incoming (transfer) records from the database
         selected = self.in_tree.selection()
         if not selected:
             messagebox.showwarning("No Selection", "Select one or more records to delete")
@@ -213,6 +232,7 @@ class SupermarketTransfers(tk.Frame):
                                    "NOTE: This removes the log entry only.\n"
                                    "Stock levels will NOT be changed."):
             return
+        # Build a map from treeview item ID to MongoDB document ID
         id_map = {iid: mid for iid, mid in self._in_ids}
         deleted = 0
         for iid in selected:
@@ -222,9 +242,10 @@ class SupermarketTransfers(tk.Frame):
                 self.in_tree.delete(iid)
                 deleted += 1
         self.in_status.config(text=f"Deleted {deleted} record(s)", fg='#E74C3C')
-        self.load_incoming()
+        self.load_incoming()   # refresh the table
 
     def delete_outgoing(self):
+        # Delete selected outgoing (sale) records from the database
         selected = self.out_tree.selection()
         if not selected:
             messagebox.showwarning("No Selection", "Select one or more records to delete")
@@ -243,10 +264,11 @@ class SupermarketTransfers(tk.Frame):
                 self.out_tree.delete(iid)
                 deleted += 1
         self.out_status.config(text=f"Deleted {deleted} record(s)", fg='#E74C3C')
-        self.load_outgoing()
+        self.load_outgoing()   # refresh the table
 
     # ── EXPORT CSV ────────────────────────────────
     def export_incoming_csv(self):
+        # Export the currently displayed incoming records to a CSV file
         rows = [self.in_tree.item(r)['values'] for r in self.in_tree.get_children()]
         if not rows:
             messagebox.showwarning("No Data", "Nothing to export")
@@ -263,6 +285,7 @@ class SupermarketTransfers(tk.Frame):
         messagebox.showinfo("Exported", f"Saved to {path}")
 
     def export_outgoing_csv(self):
+        # Export the currently displayed outgoing (sale) records to a CSV file
         rows = [self.out_tree.item(r)['values'] for r in self.out_tree.get_children()]
         if not rows:
             messagebox.showwarning("No Data", "Nothing to export")

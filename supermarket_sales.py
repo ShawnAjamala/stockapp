@@ -6,18 +6,21 @@ from db import (
     get_today_sales
 )
 
+# Page for recording sales and viewing today's sales history
 class SupermarketSales(tk.Frame):
     def __init__(self, parent, user, refresh_callback=None):
         super().__init__(parent)
-        self.user = user
-        self.refresh_callback = refresh_callback
+        self.user = user                        # logged‑in supermarket admin
+        self.refresh_callback = refresh_callback  # function to refresh dashboard stats
         self.configure(bg='#F5F6FA')
 
         self.create_widgets()
-        self.load_inventory()
-        self.load_today_sales()
+        self.load_inventory()      # load current stock into the treeview
+        self.load_today_sales()    # load today's sales into the treeview
 
+    # Build the entire GUI layout
     def create_widgets(self):
+        # Header with title
         header = tk.Frame(self, bg='#FFFFFF', height=70)
         header.pack(fill="x")
         header.pack_propagate(False)
@@ -29,6 +32,7 @@ class SupermarketSales(tk.Frame):
                                   bg='#FFFFFF', fg='#E67E22')
         inv_frame.pack(fill='both', expand=True, padx=10, pady=5)
 
+        # Search bar for inventory
         search_frame = tk.Frame(inv_frame, bg='#FFFFFF')
         search_frame.pack(fill='x', pady=5, padx=10)
         tk.Label(search_frame, text="Search:").pack(side='left')
@@ -39,6 +43,7 @@ class SupermarketSales(tk.Frame):
         tk.Button(search_frame, text="REFRESH", command=self.load_inventory,
                   bg='#95A5A6', fg='white').pack(side='left', padx=5)
 
+        # Treeview container with scrollbar
         tree_container = tk.Frame(inv_frame, bg='#FFFFFF')
         tree_container.pack(fill='both', expand=True, padx=10, pady=5)
 
@@ -59,7 +64,7 @@ class SupermarketSales(tk.Frame):
         self.inv_tree.column('Selling Price ($/KG)', width=150)
         self.inv_tree.pack(side='left', fill='both', expand=True)
 
-        # ========== RECORD SALE ==========
+        # ========== RECORD SALE FORM ==========
         sale_frame = tk.LabelFrame(self, text="RECORD SALE", font=("Segoe UI", 11, "bold"),
                                    bg='#FFFFFF', fg='#E67E22')
         sale_frame.pack(fill='x', padx=10, pady=5)
@@ -67,31 +72,37 @@ class SupermarketSales(tk.Frame):
         sale_inner = tk.Frame(sale_frame, bg='#FFFFFF')
         sale_inner.pack(pady=15, padx=15)
 
+        # Product selection
         tk.Label(sale_inner, text="Product:").grid(row=0, column=0, padx=10, pady=10, sticky='w')
         self.sale_product = ttk.Combobox(sale_inner, width=30, state='readonly')
         self.sale_product.grid(row=0, column=1, padx=10, pady=10)
         self.sale_product.bind('<<ComboboxSelected>>', self.on_sale_product_select)
 
+        # Available stock display
         tk.Label(sale_inner, text="Available Stock:").grid(row=0, column=2, padx=10, pady=10, sticky='w')
         self.avail_stock_label = tk.Label(sale_inner, text="0 KG", fg='green')
         self.avail_stock_label.grid(row=0, column=3, padx=10, pady=10)
 
+        # Selling price (pre‑filled from product's selling price)
         tk.Label(sale_inner, text="Selling Price ($/KG):").grid(row=1, column=0, padx=10, pady=10, sticky='w')
         self.sale_price_entry = tk.Entry(sale_inner, width=15)
         self.sale_price_entry.grid(row=1, column=1, padx=10, pady=10)
 
+        # Quantity sold
         tk.Label(sale_inner, text="Quantity Sold (KG):").grid(row=1, column=2, padx=10, pady=10, sticky='w')
         self.sale_qty_entry = tk.Entry(sale_inner, width=15)
         self.sale_qty_entry.grid(row=1, column=3, padx=10, pady=10)
 
+        # Record sale button
         tk.Button(sale_inner, text="RECORD SALE", command=self.record_sale,
                   bg='#27AE60', fg='white', font=("Segoe UI", 11, "bold")).grid(row=2, column=0, columnspan=4, pady=15)
 
-        # ========== TODAY'S SALES ==========
+        # ========== TODAY'S SALES TABLE ==========
         today_frame = tk.LabelFrame(self, text="TODAY'S SALES", font=("Segoe UI", 11, "bold"),
                                     bg='#FFFFFF', fg='#E67E22')
         today_frame.pack(fill='both', expand=True, padx=10, pady=5)
 
+        # Container with grid for scrollbars
         sales_container = tk.Frame(today_frame, bg='#FFFFFF')
         sales_container.pack(fill='both', expand=True, padx=10, pady=10)
         sales_container.columnconfigure(0, weight=1)
@@ -114,6 +125,7 @@ class SupermarketSales(tk.Frame):
             self.sales_tree.column(col, width=120)
         self.sales_tree.column('Product', width=180)
 
+        # Summary bar (total KG sold & total profit)
         sum_frame = tk.Frame(today_frame, bg='#FEF9E7', relief='solid', bd=1)
         sum_frame.pack(fill='x', pady=5, padx=10)
         self.total_sales_label = tk.Label(sum_frame, text="Total KG sold today: 0", bg='#FEF9E7')
@@ -121,6 +133,7 @@ class SupermarketSales(tk.Frame):
         self.total_profit_label = tk.Label(sum_frame, text="Total Profit: $0.00", bg='#FEF9E7', fg='green')
         self.total_profit_label.pack(side='right', padx=10, pady=5)
 
+    # Load current inventory from database into the treeview
     def load_inventory(self):
         for row in self.inv_tree.get_children():
             self.inv_tree.delete(row)
@@ -134,9 +147,11 @@ class SupermarketSales(tk.Frame):
                 f"{p['quantity']:.1f}",
                 f"${p.get('selling_price', 0):.2f}"
             ))
+        # Notify dashboard to refresh stats
         if self.refresh_callback:
             self.refresh_callback()
 
+    # Filter inventory treeview by search keyword
     def search_inventory(self):
         kw = self.search_entry.get().strip().lower()
         self.inv_tree.delete(*self.inv_tree.get_children())
@@ -148,6 +163,7 @@ class SupermarketSales(tk.Frame):
                     f"${p.get('selling_price', 0):.2f}"
                 ))
 
+    # When a product is selected for sale, show its available stock and pre‑fill selling price
     def on_sale_product_select(self, event):
         name = self.sale_product.get()
         if name in self.product_list:
@@ -158,6 +174,7 @@ class SupermarketSales(tk.Frame):
             if selling > 0:
                 self.sale_price_entry.insert(0, f"{selling:.2f}")
 
+    # Record the sale, deduct stock, and update displays
     def record_sale(self):
         name = self.sale_product.get()
         if not name:
@@ -182,16 +199,17 @@ class SupermarketSales(tk.Frame):
         ok, msg = record_sale(name, qty, price)
         if ok:
             messagebox.showinfo("Success", msg)
-            self.load_inventory()
-            self.load_today_sales()
+            self.load_inventory()          # refresh stock display
+            self.load_today_sales()        # refresh today's sales table
             self.sale_product.set('')
             self.sale_qty_entry.delete(0, tk.END)
             self.sale_price_entry.delete(0, tk.END)
             if self.refresh_callback:
-                self.refresh_callback()
+                self.refresh_callback()    # update dashboard stats
         else:
             messagebox.showerror("Error", msg)
 
+    # Load today's sales from the database into the sales treeview
     def load_today_sales(self):
         for row in self.sales_tree.get_children():
             self.sales_tree.delete(row)

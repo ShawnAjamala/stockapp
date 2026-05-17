@@ -16,15 +16,16 @@ from db import (
 )
 from bson import ObjectId
 
+# Page for warehouse to send stock directly or approve supermarket requests
 class WarehouseSend(tk.Frame):
     def __init__(self, parent, user, refresh_callback=None):
         super().__init__(parent)
-        self.user = user
-        self.refresh_callback = refresh_callback
+        self.user = user                        # logged‑in warehouse admin
+        self.refresh_callback = refresh_callback  # dashboard refresh callback
         self.configure(bg='#F5F6FA')
-        self.product_dict = {}
-        self.pending_requests = []
-        self.filled_request_id = None
+        self.product_dict = {}                  # warehouse products (name -> details)
+        self.pending_requests = []              # list of pending request objects
+        self.filled_request_id = None           # ID of request that filled the form
 
         self.create_widgets()
         self.load_warehouse_products()
@@ -33,6 +34,7 @@ class WarehouseSend(tk.Frame):
 
     # ------------------ UI creation (unchanged) ------------------
     def create_widgets(self):
+        # Header with title and notification button
         header = tk.Frame(self, bg='#FFFFFF', height=70)
         header.pack(fill="x")
         header.pack_propagate(False)
@@ -44,10 +46,11 @@ class WarehouseSend(tk.Frame):
                                     relief='flat', padx=15, pady=5)
         self.notify_btn.pack(side='right', padx=20)
 
+        # Main container with two columns
         main = tk.Frame(self, bg='#F5F6FA')
         main.pack(fill='both', expand=True, padx=10, pady=10)
 
-        # LEFT: Send form
+        # LEFT: Send stock form (direct send)
         left = tk.LabelFrame(main, text="SEND STOCK FORM", font=("Segoe UI", 11, "bold"),
                              bg='#FFFFFF', fg='#E67E22')
         left.pack(side='left', fill='both', expand=True, padx=(0,5))
@@ -55,43 +58,51 @@ class WarehouseSend(tk.Frame):
         form = tk.Frame(left, bg='#FFFFFF')
         form.pack(pady=15, padx=15)
 
+        # Product selection combo box
         tk.Label(form, text="Product:").grid(row=0, column=0, sticky='w', pady=5)
         self.product_cb = ttk.Combobox(form, width=30, state='readonly')
         self.product_cb.grid(row=0, column=1, pady=5)
         self.product_cb.bind('<<ComboboxSelected>>', self.on_product_select)
 
+        # Display available stock for the selected product
         tk.Label(form, text="Available (KG):").grid(row=0, column=2, padx=10, pady=5)
         self.avail_label = tk.Label(form, text="0", fg='green')
         self.avail_label.grid(row=0, column=3, pady=5)
 
+        # Display price per KG
         tk.Label(form, text="Price/KG ($):").grid(row=1, column=0, sticky='w', pady=5)
         self.price_label = tk.Label(form, text="$0.00", fg='#E67E22')
         self.price_label.grid(row=1, column=1, pady=5)
 
+        # Supermarket selection
         tk.Label(form, text="Supermarket:").grid(row=1, column=2, padx=10, pady=5)
         supermarkets = get_users_by_role("supermarket admin")
         self.supermarket_cb = ttk.Combobox(form, values=[s['email'] for s in supermarkets],
                                            width=25, state='readonly')
         self.supermarket_cb.grid(row=1, column=3, pady=5)
 
+        # Quantity to send
         tk.Label(form, text="Quantity (KG):").grid(row=2, column=0, sticky='w', pady=5)
         self.qty_entry = tk.Entry(form, width=15)
         self.qty_entry.grid(row=2, column=1, pady=5)
         self.qty_entry.bind('<KeyRelease>', self.calc_total)
 
+        # Total value (calculated)
         tk.Label(form, text="Total Value:").grid(row=2, column=2, padx=10, pady=5)
         self.total_label = tk.Label(form, text="$0.00", fg='green')
         self.total_label.grid(row=2, column=3, pady=5)
 
+        # Send button
         self.send_btn = tk.Button(form, text="SEND STOCK", command=self.send_stock,
                                   bg='#27AE60', fg='white', width=20)
         self.send_btn.grid(row=3, column=0, columnspan=4, pady=15)
 
-        # RIGHT: Pending requests
+        # RIGHT: Pending requests list
         right = tk.LabelFrame(main, text="PENDING REQUESTS", font=("Segoe UI", 11, "bold"),
                               bg='#FFFFFF', fg='#E67E22')
         right.pack(side='right', fill='both', expand=True, padx=(5,0))
 
+        # Listbox with scrollbar to display pending requests
         req_frame = tk.Frame(right, bg='#FFFFFF')
         req_frame.pack(fill='both', expand=True, padx=10, pady=10)
         scroll = tk.Scrollbar(req_frame)
@@ -100,6 +111,7 @@ class WarehouseSend(tk.Frame):
         self.req_listbox.pack(side='left', fill='both', expand=True)
         scroll.config(command=self.req_listbox.yview)
 
+        # Buttons for request actions
         btn_frame = tk.Frame(right, bg='#FFFFFF')
         btn_frame.pack(fill='x', pady=5)
         self.approve_btn = tk.Button(btn_frame, text="APPROVE & FILL FORM", command=self.approve_and_fill,
@@ -114,10 +126,12 @@ class WarehouseSend(tk.Frame):
 
     # ------------------ Helpers (unchanged) ------------------
     def update_notification_badge(self):
+        # Update the notification button text with unread count
         count = get_unread_notifications_count(self.user['email'])
         self.notify_btn.config(text=f"NOTIFICATIONS ({count})" if count else "NOTIFICATIONS")
 
     def show_notifications(self):
+        # Open a popup window listing all user notifications
         notifs = get_user_notifications(self.user['email'])
         win = tk.Toplevel(self)
         win.title("Notifications")
@@ -131,6 +145,7 @@ class WarehouseSend(tk.Frame):
         frame = tk.Frame(win, bg='#FFFFFF')
         frame.pack(fill='both', expand=True, padx=10, pady=5)
 
+        # Scrollable area for notifications
         canvas = tk.Canvas(frame, bg='#FFFFFF', highlightthickness=0)
         scroll = tk.Scrollbar(frame, orient='vertical', command=canvas.yview)
         inner = tk.Frame(canvas, bg='#FFFFFF')
@@ -175,11 +190,13 @@ class WarehouseSend(tk.Frame):
         self.update_notification_badge()
 
     def load_warehouse_products(self):
+        # Load all warehouse products into a dictionary for quick lookup
         prods = get_all_warehouse_products()
         self.product_dict = {p['name']: p for p in prods}
         self.product_cb['values'] = list(self.product_dict.keys())
 
     def on_product_select(self, event):
+        # Update the available stock and price when a product is selected
         name = self.product_cb.get()
         if name in self.product_dict:
             p = self.product_dict[name]
@@ -188,6 +205,7 @@ class WarehouseSend(tk.Frame):
             self.calc_total()
 
     def calc_total(self, event=None):
+        # Calculate total value = quantity * price
         try:
             qty = float(self.qty_entry.get())
             name = self.product_cb.get()
@@ -200,6 +218,7 @@ class WarehouseSend(tk.Frame):
             self.total_label.config(text="$0.00")
 
     def load_pending_requests(self):
+        # Load pending stock requests from the database and display in listbox
         self.req_listbox.delete(0, tk.END)
         self.pending_requests = get_pending_requests_for_warehouse(self.user['email'])
         for req in self.pending_requests:
@@ -212,6 +231,7 @@ class WarehouseSend(tk.Frame):
             self.approve_btn.config(state='normal')
 
     def approve_and_fill(self):
+        # Fill the send form with the selected request's details
         sel = self.req_listbox.curselection()
         if not sel:
             messagebox.showerror("Error", "Select a request first")
@@ -229,6 +249,7 @@ class WarehouseSend(tk.Frame):
 
     # ---------- FIXED send_stock: also updates supermarket inventory ----------
     def send_stock(self):
+        # Execute the stock transfer: deduct from warehouse, add to supermarket, record transfer
         product_name = self.product_cb.get()
         supermarket_email = self.supermarket_cb.get()
         qty_str = self.qty_entry.get().strip()
@@ -250,7 +271,7 @@ class WarehouseSend(tk.Frame):
             messagebox.showerror("Error", f"Insufficient stock. Only {avail:.2f} KG available")
             return
 
-        # 1. Deduct from warehouse
+        # 1. Deduct from warehouse (record stock movement)
         ok, msg = record_stock_movement(product_name, "OUT", qty,
                                         f"Sent to {supermarket_email} (direct send)",
                                         self.user['email'])
@@ -265,7 +286,6 @@ class WarehouseSend(tk.Frame):
         )
         if not success:
             messagebox.showerror("Error", f"Failed to add stock to supermarket: {receive_msg}")
-            # Optionally rollback warehouse deduction? For simplicity, just show error.
             return
 
         # 3. Record transfer (so supermarket sees it in "Stock Received")

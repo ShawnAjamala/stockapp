@@ -8,6 +8,7 @@ from db import get_all_supermarket_products, get_today_profit
 from datetime import datetime
 
 class SupermarketDashboard:
+    # Initialise the dashboard with user info and create UI
     def __init__(self, root, user):
         self.root = root
         self.user = user
@@ -16,7 +17,7 @@ class SupermarketDashboard:
         self.root.configure(bg='#F5F6FA')
         self.current_frame = None
 
-        # Stat label references
+        # Stat label references – used for live updates
         self.card1_val = None   # Total Products
         self.card2_val = None   # Total Stock
         self.card3_val = None   # Today's Profit
@@ -26,23 +27,26 @@ class SupermarketDashboard:
         self.show_dashboard()
 
     def center_window(self):
+        # Center the dashboard on the screen
         self.root.update_idletasks()
         x = (self.root.winfo_screenwidth() - 1100) // 2
         y = (self.root.winfo_screenheight() - 650) // 2
         self.root.geometry(f'1100x650+{x}+{y}')
 
     def _widget_alive(self, widget):
+        # Check if a tkinter widget still exists (not destroyed)
         try:
             return widget is not None and widget.winfo_exists()
         except:
             return False
 
     def create_widgets(self):
-        # Navigation bar
+        # Navigation bar at the top
         nav_bar = tk.Frame(self.root, bg='#E67E22', height=65)
         nav_bar.pack(fill="x")
         nav_bar.pack_propagate(False)
 
+        # Logo and title section
         logo_frame = tk.Frame(nav_bar, bg='#E67E22')
         logo_frame.pack(side='left', padx=30, pady=12)
         tk.Label(logo_frame, text="FRESHSTOCK", font=("Segoe UI", 18, "bold"),
@@ -50,16 +54,18 @@ class SupermarketDashboard:
         tk.Label(logo_frame, text="Supermarket", font=("Segoe UI", 10),
                  bg='#E67E22', fg='#FAD7A1').pack(side='left', padx=(8, 0))
 
+        # List of buttons and their target methods
         nav_buttons = [
             ("Dashboard",   self.show_dashboard),
             ("Receive Stock", self.show_receive),
             ("Record Sales",  self.show_sales),
-            ("Transfers",     self.show_transfers),   # ← NEW
+            ("Transfers",     self.show_transfers),
             ("Profile",       self.show_profile)
         ]
         nav_frame = tk.Frame(nav_bar, bg='#E67E22')
         nav_frame.pack(side='left', padx=30)
 
+        # Create each navigation button with hover effect
         for text, command in nav_buttons:
             btn = tk.Button(nav_frame, text=text, command=command,
                             bg='#E67E22', fg='white', font=("Segoe UI", 10),
@@ -68,26 +74,30 @@ class SupermarketDashboard:
             btn.bind("<Enter>", lambda e, b=btn: b.configure(bg='#D35400'))
             btn.bind("<Leave>", lambda e, b=btn: b.configure(bg='#E67E22'))
 
+        # Logout button – always visible
         tk.Button(nav_bar, text="LOGOUT", command=self.logout,
                   bg='#C0392B', fg='white', font=("Segoe UI", 10, "bold"),
                   relief='flat', cursor='hand2', padx=25, pady=8).pack(side='right', padx=30)
 
+        # Main content area where different pages are placed
         self.main_content = tk.Frame(self.root, bg='#F5F6FA')
         self.main_content.pack(fill="both", expand=True, padx=25, pady=20)
 
     def clear_content(self):
+        # Destroy the current frame to switch to another page
         if self.current_frame:
             self.current_frame.destroy()
             self.current_frame = None
         self.card1_val = self.card2_val = self.card3_val = None
 
     def show_dashboard(self):
+        # Build the main dashboard view with statistics cards
         self.clear_content()
 
         self.current_frame = tk.Frame(self.main_content, bg='#F5F6FA')
         self.current_frame.pack(fill="both", expand=True)
 
-        # Hero section
+        # Hero section with orange background and welcome message
         hero_bg = tk.Frame(self.current_frame, bg='#E67E22', height=140)
         hero_bg.pack(fill="x")
         hero_bg.pack_propagate(False)
@@ -98,16 +108,17 @@ class SupermarketDashboard:
         tk.Label(hero_content, text=self.user['fullname'], font=("Segoe UI", 24, "bold"),
                  bg='#E67E22', fg='white').pack()
 
-        # Fetch data
+        # Retrieve live data from the database
         products = get_all_supermarket_products()
         total_products = len(products)
         total_stock = sum(p['quantity'] for p in products)
         today_profit = get_today_profit()
 
-        # Stats cards
+        # Create a container for the three statistic cards
         stats_frame = tk.Frame(self.current_frame, bg='#F5F6FA')
         stats_frame.pack(fill="x", pady=25)
 
+        # Helper to create a card and store the value label reference
         def make_card(parent, title, value_text, value_color, attr_name):
             card = tk.Frame(parent, bg='#FFFFFF', relief='raised', bd=1,
                             width=300, height=100)
@@ -118,14 +129,14 @@ class SupermarketDashboard:
             lbl = tk.Label(card, text=value_text, font=("Segoe UI", 28, "bold"),
                            bg='#FFFFFF', fg=value_color)
             lbl.pack()
-            setattr(self, attr_name, lbl)
+            setattr(self, attr_name, lbl)   # Store so we can update later
 
         make_card(stats_frame, "TOTAL PRODUCTS", str(total_products), '#E67E22', 'card1_val')
         make_card(stats_frame, "TOTAL STOCK", f"{total_stock:,.0f} KG", '#E67E22', 'card2_val')
         profit_color = '#27AE60' if today_profit >= 0 else '#E74C3C'
         make_card(stats_frame, "TODAY'S PROFIT", f"${today_profit:,.2f}", profit_color, 'card3_val')
 
-        # Quick-nav buttons
+        # Quick action buttons for common tasks
         quick_frame = tk.Frame(self.current_frame, bg='#F5F6FA')
         quick_frame.pack(pady=10)
 
@@ -139,13 +150,15 @@ class SupermarketDashboard:
                       bg=color, fg='white', font=("Segoe UI", 10, "bold"),
                       relief='flat', cursor='hand2', padx=20, pady=8).pack(side='left', padx=10)
 
+        # Button to manually refresh stats (also triggered automatically by callbacks)
         tk.Button(self.current_frame, text="REFRESH STATS", command=self.refresh_dashboard,
                   bg='#95A5A6', fg='white', font=("Segoe UI", 9),
                   relief='flat', cursor='hand2', padx=15, pady=6).pack(pady=10)
 
     def refresh_dashboard(self):
+        # Update the statistic cards without rebuilding the whole dashboard
         if not self._widget_alive(self.card1_val):
-            return
+            return   # Dashboard is not currently visible
 
         products = get_all_supermarket_products()
         total_products = len(products)
@@ -160,27 +173,33 @@ class SupermarketDashboard:
             profit_color = '#27AE60' if today_profit >= 0 else '#E74C3C'
             self.card3_val.config(text=f"${today_profit:,.2f}", fg=profit_color)
 
+    # ----- Page navigation methods -----
     def show_receive(self):
+        # Switch to the Receive Stock page
         self.clear_content()
         self.current_frame = SupermarketReceive(self.main_content, self.user, self.refresh_dashboard)
         self.current_frame.pack(fill="both", expand=True)
 
     def show_sales(self):
+        # Switch to the Record Sales page
         self.clear_content()
         self.current_frame = SupermarketSales(self.main_content, self.user, self.refresh_dashboard)
         self.current_frame.pack(fill="both", expand=True)
 
-    def show_transfers(self):                          # ← NEW
+    def show_transfers(self):
+        # Switch to the Transfers (inventory & sales history) page
         self.clear_content()
         self.current_frame = SupermarketTransfers(self.main_content, self.user, self.refresh_dashboard)
         self.current_frame.pack(fill="both", expand=True)
 
     def show_profile(self):
+        # Switch to the Profile page
         self.clear_content()
         self.current_frame = SupermarketProfile(self.main_content, self.user)
         self.current_frame.pack(fill="both", expand=True)
 
     def logout(self):
+        # Confirm and then return to the login screen
         if messagebox.askyesno("Logout", "Are you sure you want to logout?"):
             self.root.destroy()
             from auth import AuthWindow
