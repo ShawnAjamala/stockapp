@@ -146,23 +146,23 @@ class SupermarketReceive(tk.Frame):
                   bg='#3498DB', fg='white').grid(row=1, column=2, columnspan=2, pady=5)
         self.new_price_entry.bind('<KeyRelease>', self.update_profit_preview)
 
-    # ------------------ Data Loading (FIXED aggregation for warehouse products) ------------------
+    # ------------------ Data Loading ------------------
     def load_warehouse_products(self):
         prods = get_all_warehouse_products()
-        # Aggregate products with the same name: sum quantity, keep first price
-        aggregated = {}
+        # Deduplicate by name: keep the entry with the highest quantity.
+        # Do NOT sum quantities — the same product name can appear in multiple
+        # DB rows (e.g. different batches), but summing them causes the displayed
+        # available stock to be doubled/tripled vs what is actually requestable.
+        deduplicated = {}
         for p in prods:
             name = p['name']
-            if name in aggregated:
-                aggregated[name]['quantity'] += p['quantity']
-                # Keep the price from the first occurrence (or overwrite – doesn't matter much)
-            else:
-                aggregated[name] = {
+            if name not in deduplicated or p['quantity'] > deduplicated[name]['quantity']:
+                deduplicated[name] = {
                     'name': name,
                     'quantity': p['quantity'],
                     'price': p['price']
                 }
-        self.warehouse_products = aggregated
+        self.warehouse_products = deduplicated
         self.product_cb['values'] = list(self.warehouse_products.keys())
 
     def load_supermarket_products(self):
@@ -198,7 +198,7 @@ class SupermarketReceive(tk.Frame):
             self.avail_label.config(text=f"{p['quantity']:.2f}")
             self.price_label.config(text=f"${p['price']:.2f}")
 
-    # ---------- Cart methods (unchanged) ----------
+    # ---------- Cart methods ----------
     def add_to_cart(self):
         name = self.product_cb.get()
         if not name:
@@ -270,7 +270,7 @@ class SupermarketReceive(tk.Frame):
             if self.refresh_callback:
                 self.refresh_callback()
 
-    # ---------- Selling price methods (unchanged) ----------
+    # ---------- Selling price methods ----------
     def on_price_product_select(self, event):
         name = self.price_product_cb.get()
         if name in self.supermarket_products:

@@ -121,8 +121,21 @@ def create_warehouse_product(product_name, quantity, price):
         }
         products.insert_one(product_data)
 
-        # --- CRITICAL FIX: Log initial stock movement ---
-        record_stock_movement(product_name, "IN", quantity, "Initial stock added", "system")
+        # FIX: Only log the movement for audit purposes — do NOT call record_stock_movement
+        # because that function would ADD quantity on top of what was just inserted,
+        # doubling the stock. We log directly here instead.
+        movement_data = {
+            "product_name": product_name,
+            "movement_type": "IN",
+            "quantity": quantity,
+            "previous_quantity": 0,
+            "new_quantity": quantity,
+            "notes": "Initial stock added",
+            "user_email": "system",
+            "timestamp": datetime.now(),
+            "date": datetime.now().strftime("%Y-%m-%d")
+        }
+        transfers.insert_one(movement_data)
 
         return True, f"Product '{product_name}' added to warehouse successfully"
     except Exception as e:
@@ -299,6 +312,10 @@ def approve_stock_request(request_id, warehouse_email):
             {"_id": warehouse_product['_id']},
             {"$set": {"quantity": new_warehouse_qty, "updated_at": datetime.now()}}
         )
+
+        # FIX: Only insert ONE movement/transfer record here.
+        # The old code inserted a manual movement_data AND then called create_transfer()
+        # at the end, resulting in two records for the same transfer.
         movement_data = {
             "product_name": product_name,
             "movement_type": "OUT",
@@ -307,8 +324,11 @@ def approve_stock_request(request_id, warehouse_email):
             "new_quantity": new_warehouse_qty,
             "notes": f"Approved request from {supermarket_email}",
             "user_email": warehouse_email,
+            "from_email": warehouse_email,
+            "to_email": supermarket_email,
             "timestamp": datetime.now(),
-            "date": datetime.now().strftime("%Y-%m-%d")
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "status": "completed"
         }
         transfers.insert_one(movement_data)
 
@@ -342,7 +362,9 @@ def approve_stock_request(request_id, warehouse_email):
                       "approved_by": warehouse_email, "approved_at": datetime.now()}}
         )
 
-        create_transfer(warehouse_email, supermarket_email, product_name, quantity)
+        # FIX: Removed the duplicate create_transfer() call that was here before.
+        # The movement_data insertion above already captures the full transfer record.
+
         create_notification(supermarket_email, "Stock Request Approved",
                             f"Your request for {quantity} KG of {product_name} has been approved and sent", "approved")
 

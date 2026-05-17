@@ -1,8 +1,15 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from db import get_all_movements, get_movements_by_type
+from bson import ObjectId
+from pymongo import MongoClient
 import csv
 from datetime import datetime
+
+# Direct DB access for deletes
+client = MongoClient("mongodb+srv://shawnajamala1_db_user:LlLBJrjkXIyn5bGh@cluster0.yqqbhoe.mongodb.net/?appName=Cluster0")
+db = client.supermarket_storage
+
 
 class WarehouseTransfers(tk.Frame):
     def __init__(self, parent, user, refresh_callback=None):
@@ -10,6 +17,7 @@ class WarehouseTransfers(tk.Frame):
         self.user = user
         self.refresh_callback = refresh_callback
         self.configure(bg='#F5F6FA')
+        self._row_ids = []  # maps treeview iid → MongoDB _id
 
         self.create_widgets()
         self.load_data()
@@ -33,6 +41,8 @@ class WarehouseTransfers(tk.Frame):
 
         tk.Button(control, text="REFRESH", command=self.load_data,
                   bg='#3498DB', fg='white').pack(side='left', padx=5)
+        tk.Button(control, text="DELETE SELECTED", command=self.delete_selected,
+                  bg='#E74C3C', fg='white', font=("Segoe UI", 9, "bold")).pack(side='left', padx=5)
         tk.Button(control, text="EXPORT CSV", command=self.export_csv,
                   bg='#27AE60', fg='white').pack(side='left', padx=5)
 
@@ -49,7 +59,8 @@ class WarehouseTransfers(tk.Frame):
 
         columns = ('Date', 'Product', 'Type', 'Quantity (KG)', 'Notes', 'Recorded By')
         self.tree = ttk.Treeview(tree_container, columns=columns, show='headings',
-                                 yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+                                 yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set,
+                                 selectmode='extended')   # allows multi-select
         self.tree.grid(row=0, column=0, sticky='nsew')
         v_scroll.config(command=self.tree.yview)
         h_scroll.config(command=self.tree.xview)
@@ -66,23 +77,18 @@ class WarehouseTransfers(tk.Frame):
     def load_data(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
+        self._row_ids = []
 
         filter_type = self.filter_var.get()
-        if filter_type == "All":
-            movements = get_all_movements()
-        else:
-            movements = get_movements_by_type(filter_type)
+        movements = get_all_movements() if filter_type == "All" else get_movements_by_type(filter_type)
 
         if not movements:
             self.status_label.config(text="No movements found", fg='orange')
             return
 
-        count = 0
         for m in movements:
-            # Determine movement type – handle missing or legacy fields
             mov_type = m.get('movement_type')
             if not mov_type:
-                # Infer from notes or destination
                 notes = m.get('notes', '').lower()
                 if 'initial stock' in notes or 'added' in notes:
                     mov_type = 'IN'
@@ -91,27 +97,49 @@ class WarehouseTransfers(tk.Frame):
                 else:
                     mov_type = 'UNKNOWN'
 
-            dt = m['timestamp'].strftime('%Y-%m-%d %H:%M')
-            self.tree.insert('', 'end', values=(
-                dt,
+            iid = self.tree.insert('', 'end', values=(
+                m['timestamp'].strftime('%Y-%m-%d %H:%M'),
                 m['product_name'],
                 mov_type,
                 f"{m['quantity']:.2f}",
                 m.get('notes', ''),
                 m.get('user_email', 'system')
             ))
-            count += 1
+            self._row_ids.append((iid, str(m['_id'])))
 
+        count = len(self._row_ids)
         self.status_label.config(text=f"Loaded {count} movements", fg='green')
         if self.refresh_callback:
             self.refresh_callback()
 
+    def delete_selected(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Select one or more records to delete")
+            return
+        if not messagebox.askyesno("Confirm Delete",
+                                   f"Delete {len(selected)} selected record(s)?\n\n"
+                                   "NOTE: This removes the log entry only.\n"
+                                   "Stock levels will NOT be changed."):
+            return
+
+        id_map = {iid: mid for iid, mid in self._row_ids}
+        deleted = 0
+        for iid in selected:
+            mid = id_map.get(iid)
+            if mid:
+                db.transfers.delete_one({"_id": ObjectId(mid)})
+                self.tree.delete(iid)
+                deleted += 1
+
+        self.status_label.config(text=f"Deleted {deleted} record(s)", fg='#E74C3C')
+        # Rebuild id map after deletion
+        self._row_ids = [(iid, mid) for iid, mid in self._row_ids
+                         if iid not in {i for i in selected}]
+
     def export_csv(self):
         filter_type = self.filter_var.get()
-        if filter_type == "All":
-            movements = get_all_movements()
-        else:
-            movements = get_movements_by_type(filter_type)
+        movements = get_all_movements() if filter_type == "All" else get_movements_by_type(filter_type)
 
         if not movements:
             messagebox.showwarning("No Data", "Nothing to export")
