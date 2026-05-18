@@ -130,15 +130,5 @@ Password: admin123
 Or register a new account using the Register tab.
 
 ---
-
-## Default Admin Account
-
-Email: admin@supermarket.com
-Password: admin123
-
-After first run, this account is automatically created in the database.
-
----
-
 ## Author
 -Shawn Ajamala
