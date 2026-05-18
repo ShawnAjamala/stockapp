@@ -134,7 +134,7 @@ class SupermarketDashboard:
         make_card(stats_frame, "TOTAL PRODUCTS", str(total_products), '#E67E22', 'card1_val')
         make_card(stats_frame, "TOTAL STOCK", f"{total_stock:,.0f} KG", '#E67E22', 'card2_val')
         profit_color = '#27AE60' if today_profit >= 0 else '#E74C3C'
-        make_card(stats_frame, "TODAY'S PROFIT", f"${today_profit:,.2f}", profit_color, 'card3_val')
+        make_card(stats_frame, "TODAY'S PROFIT", f"Ksh{today_profit:,.2f}", profit_color, 'card3_val')
 
         # Quick action buttons for common tasks
         quick_frame = tk.Frame(self.current_frame, bg='#F5F6FA')

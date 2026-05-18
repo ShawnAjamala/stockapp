@@ -50,18 +50,18 @@ class SupermarketSales(tk.Frame):
         scroll = ttk.Scrollbar(tree_container)
         scroll.pack(side='right', fill='y')
 
-        columns = ('Name', 'Stock (KG)', 'Selling Price ($/KG)')
+        columns = ('Name', 'Stock (KG)', 'Selling Price (Ksh/KG)')
         self.inv_tree = ttk.Treeview(tree_container, columns=columns, show='headings',
                                      yscrollcommand=scroll.set, height=10)
         scroll.config(command=self.inv_tree.yview)
 
         self.inv_tree.heading('Name', text='Product')
         self.inv_tree.heading('Stock (KG)', text='Stock (KG)')
-        self.inv_tree.heading('Selling Price ($/KG)', text='Selling Price ($/KG)')
+        self.inv_tree.heading('Selling Price (Ksh/KG)', text='Selling Price (Ksh/KG)')
 
         self.inv_tree.column('Name', width=200)
         self.inv_tree.column('Stock (KG)', width=100)
-        self.inv_tree.column('Selling Price ($/KG)', width=150)
+        self.inv_tree.column('Selling Price (Ksh/KG)', width=170)
         self.inv_tree.pack(side='left', fill='both', expand=True)
 
         # ========== RECORD SALE FORM ==========
@@ -84,7 +84,7 @@ class SupermarketSales(tk.Frame):
         self.avail_stock_label.grid(row=0, column=3, padx=10, pady=10)
 
         # Selling price (pre‑filled from product's selling price)
-        tk.Label(sale_inner, text="Selling Price ($/KG):").grid(row=1, column=0, padx=10, pady=10, sticky='w')
+        tk.Label(sale_inner, text="Selling Price (Ksh/KG):").grid(row=1, column=0, padx=10, pady=10, sticky='w')
         self.sale_price_entry = tk.Entry(sale_inner, width=15)
         self.sale_price_entry.grid(row=1, column=1, padx=10, pady=10)
 
@@ -113,7 +113,7 @@ class SupermarketSales(tk.Frame):
         h_scroll = ttk.Scrollbar(sales_container, orient='horizontal')
         h_scroll.grid(row=1, column=0, sticky='ew')
 
-        sales_columns = ('Product', 'Quantity (KG)', 'Selling Price ($/KG)', 'Profit ($)', 'Time')
+        sales_columns = ('Product', 'Quantity (KG)', 'Selling Price (Ksh/KG)', 'Profit (Ksh)', 'Time')
         self.sales_tree = ttk.Treeview(sales_container, columns=sales_columns, show='headings',
                                        yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set, height=8)
         self.sales_tree.grid(row=0, column=0, sticky='nsew')
@@ -122,7 +122,7 @@ class SupermarketSales(tk.Frame):
 
         for col in sales_columns:
             self.sales_tree.heading(col, text=col)
-            self.sales_tree.column(col, width=120)
+            self.sales_tree.column(col, width=140)
         self.sales_tree.column('Product', width=180)
 
         # Summary bar (total KG sold & total profit)
@@ -130,7 +130,7 @@ class SupermarketSales(tk.Frame):
         sum_frame.pack(fill='x', pady=5, padx=10)
         self.total_sales_label = tk.Label(sum_frame, text="Total KG sold today: 0", bg='#FEF9E7')
         self.total_sales_label.pack(side='left', padx=10, pady=5)
-        self.total_profit_label = tk.Label(sum_frame, text="Total Profit: $0.00", bg='#FEF9E7', fg='green')
+        self.total_profit_label = tk.Label(sum_frame, text="Total Profit: Ksh 0.00", bg='#FEF9E7', fg='green')
         self.total_profit_label.pack(side='right', padx=10, pady=5)
 
     # Load current inventory from database into the treeview
@@ -145,7 +145,7 @@ class SupermarketSales(tk.Frame):
             self.inv_tree.insert('', 'end', values=(
                 p['name'],
                 f"{p['quantity']:.1f}",
-                f"${p.get('selling_price', 0):.2f}"
+                f"Ksh {p.get('selling_price', 0):.2f}"
             ))
         # Notify dashboard to refresh stats
         if self.refresh_callback:
@@ -160,10 +160,10 @@ class SupermarketSales(tk.Frame):
                 self.inv_tree.insert('', 'end', values=(
                     name,
                     f"{p['quantity']:.1f}",
-                    f"${p.get('selling_price', 0):.2f}"
+                    f"Ksh {p.get('selling_price', 0):.2f}"
                 ))
 
-    # When a product is selected for sale, show its available stock and pre‑fill selling price
+    # When a product is selected for sale, show its available stock and pre‑filled selling price
     def on_sale_product_select(self, event):
         name = self.sale_product.get()
         if name in self.product_list:
@@ -222,9 +222,9 @@ class SupermarketSales(tk.Frame):
             self.sales_tree.insert('', 'end', values=(
                 s['product_name'],
                 f"{s['quantity_sold']:.2f}",
-                f"${s['selling_price']:.2f}",
-                f"${s['profit']:.2f}",
+                f"Ksh {s['selling_price']:.2f}",
+                f"Ksh {s['profit']:.2f}",
                 s['timestamp'].strftime('%H:%M')
             ))
         self.total_sales_label.config(text=f"Total KG sold today: {total_qty:.2f}")
-        self.total_profit_label.config(text=f"Total Profit: ${total_profit:.2f}")
+        self.total_profit_label.config(text=f"Total Profit: Ksh {total_profit:.2f}")

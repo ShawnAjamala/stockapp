@@ -73,7 +73,7 @@ class WarehouseStock(tk.Frame):
         self.entry_qty.grid(row=1, column=1, pady=10, sticky='ew')
 
         # Price per KG entry
-        tk.Label(form_inner, text="Price per KG ($):", **lbl_cfg).grid(
+        tk.Label(form_inner, text="Price per KG (Ksh):", **lbl_cfg).grid(
             row=2, column=0, padx=(0, 10), pady=10, sticky='w')
         self.entry_price = tk.Entry(form_inner, width=28, **ent_cfg)
         self.entry_price.grid(row=2, column=1, pady=10, sticky='ew')
@@ -158,10 +158,10 @@ class WarehouseStock(tk.Frame):
         h_scroll.config(command=self.tree.xview)
 
         # Column headings and alignment
-        self.tree.heading('Name',     text='Product Name',    anchor='w')
-        self.tree.heading('Quantity', text='Quantity (KG)',    anchor='center')
-        self.tree.heading('Price',    text='Price per KG ($)', anchor='center')
-        self.tree.heading('Total',    text='Total Value ($)',  anchor='center')
+        self.tree.heading('Name',     text='Product Name',       anchor='w')
+        self.tree.heading('Quantity', text='Quantity (KG)',       anchor='center')
+        self.tree.heading('Price',    text='Price per KG (Ksh)', anchor='center')
+        self.tree.heading('Total',    text='Total Value (Ksh)',   anchor='center')
 
         # Column widths and stretch behaviour
         self.tree.column('Name',     minwidth=160, width=220, stretch=True,  anchor='w')
@@ -184,7 +184,7 @@ class WarehouseStock(tk.Frame):
                  font=("Segoe UI", 11, "bold"), bg='#FEF9E7', fg='#E67E22'
                  ).pack(side='left', padx=15, pady=8)
 
-        self.total_value_label = tk.Label(total_frame, text="$0.00",
+        self.total_value_label = tk.Label(total_frame, text="Ksh 0.00",
                                           font=("Segoe UI", 14, "bold"),
                                           bg='#FEF9E7', fg='#27AE60')
         self.total_value_label.pack(side='right', padx=15, pady=8)
@@ -203,11 +203,11 @@ class WarehouseStock(tk.Frame):
             self.tree.insert('', 'end', tags=(tag,), values=(
                 p['name'],
                 f"{p['quantity']:.2f} KG",
-                f"${p['price']:.2f}",
-                f"${total:.2f}"
+                f"Ksh {p['price']:.2f}",
+                f"Ksh {total:.2f}"
             ))
 
-        self.total_value_label.config(text=f"${total_value:,.2f}")
+        self.total_value_label.config(text=f"Ksh {total_value:,.2f}")
         self._try_refresh()
 
     # Search products by name and refresh the treeview
@@ -229,11 +229,11 @@ class WarehouseStock(tk.Frame):
             self.tree.insert('', 'end', tags=(tag,), values=(
                 p['name'],
                 f"{p['quantity']:.2f} KG",
-                f"${p['price']:.2f}",
-                f"${total:.2f}"
+                f"Ksh {p['price']:.2f}",
+                f"Ksh {total:.2f}"
             ))
 
-        self.total_value_label.config(text=f"${total_value:,.2f}")
+        self.total_value_label.config(text=f"Ksh {total_value:,.2f}")
 
     # When a product row is selected, populate the form for editing
     def on_select(self, event):
@@ -247,7 +247,7 @@ class WarehouseStock(tk.Frame):
 
         product_name = values[0]
         quantity_str = str(values[1]).replace(' KG', '')
-        price_str    = str(values[2]).replace('$', '')
+        price_str    = str(values[2]).replace('Ksh ', '')
 
         self.current_selected_product = product_name
 

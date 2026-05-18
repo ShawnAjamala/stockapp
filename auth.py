@@ -15,119 +15,151 @@ class AuthWindow:
         self.root = root
         self.root.title("FreshStock Manager - Login")
         self.root.geometry("450x500")
+        self.root.minsize(380, 460)          # prevent squishing too small
         self.root.configure(bg='#FFF8F0')
-        
+
         self.center_window()
         self.create_widgets()
-    
+
     def center_window(self):
         """Center window on screen"""
         self.root.update_idletasks()
         x = (self.root.winfo_screenwidth() - 450) // 2
         y = (self.root.winfo_screenheight() - 500) // 2
         self.root.geometry(f'450x500+{x}+{y}')
-    
+
     def create_widgets(self):
         """Create all GUI elements"""
-        # Header
+        # Header – fixed height, stretches horizontally
         header = tk.Frame(self.root, bg='#E67E22', height=100)
         header.pack(fill="x")
-        tk.Label(header, text="FRESHSTOCK MANAGER", 
-                font=("Arial", 14, "bold"), bg='#E67E22', fg='white').pack(pady=35)
-        
-        # Tabs (notebook) to switch between Login and Register
+        header.pack_propagate(False)
+        tk.Label(header, text="FRESHSTOCK MANAGER",
+                font=("Arial", 14, "bold"), bg='#E67E22', fg='white').pack(expand=True)
+
+        # Notebook fills all remaining space and expands with the window
         style = ttk.Style()
         style.configure('TNotebook', background='#FFF8F0')
         style.configure('TNotebook.Tab', font=('Arial', 10, 'bold'), padding=[10, 5])
-        
+
         notebook = ttk.Notebook(self.root)
         notebook.pack(pady=20, padx=20, fill="both", expand=True)
-        
+
         # Login tab
         login_frame = ttk.Frame(notebook)
         notebook.add(login_frame, text="LOGIN")
         self.create_login_tab(login_frame)
-        
+
         # Register tab
         register_frame = ttk.Frame(notebook)
         notebook.add(register_frame, text="REGISTER")
         self.create_register_tab(register_frame)
-    
+
     def create_login_tab(self, parent):
-       #Creates Login form
-        container = tk.Frame(parent, bg='#FFFFFF')
-        container.pack(fill="both", expand=True, padx=30, pady=30)
-        
-        tk.Label(container, text="Welcome Back", font=("Arial", 12, "bold"), 
-                bg='#FFFFFF', fg='#E67E22').pack(pady=(0, 20))
-        
+        #Creates Login form
+        # Outer frame fills the tab and centres content
+        outer = tk.Frame(parent, bg='#FFFFFF')
+        outer.pack(fill="both", expand=True)
+
+        # Single centred column that grows with the window
+        outer.columnconfigure(0, weight=1)
+        outer.rowconfigure(0, weight=1)
+
+        container = tk.Frame(outer, bg='#FFFFFF')
+        container.grid(row=0, column=0, sticky='nsew', padx=40, pady=30)
+        container.columnconfigure(0, weight=1)   # all children stretch horizontally
+
+        tk.Label(container, text="Welcome Back", font=("Arial", 12, "bold"),
+                bg='#FFFFFF', fg='#E67E22').grid(row=0, column=0, pady=(0, 20), sticky='ew')
+
         # Email field
-        tk.Label(container, text="Email:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
-        self.login_email = tk.Entry(container, width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
-        self.login_email.pack(fill="x", pady=(0, 15))
+        tk.Label(container, text="Email:", bg='#FFFFFF', fg='#5D4E37',
+                anchor='w').grid(row=1, column=0, sticky='ew')
+        self.login_email = tk.Entry(container, bg='#FFF8F0', fg='#5D4E37',
+                                    relief='solid', bd=1)
+        self.login_email.grid(row=2, column=0, sticky='ew', pady=(0, 15))
         # Pressing Enter triggers login
         self.login_email.bind('<Return>', lambda e: self.login())
-        
+
         # Password field
-        tk.Label(container, text="Password:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
-        self.login_password = tk.Entry(container, show="*", width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
-        self.login_password.pack(fill="x", pady=(0, 20))
+        tk.Label(container, text="Password:", bg='#FFFFFF', fg='#5D4E37',
+                anchor='w').grid(row=3, column=0, sticky='ew')
+        self.login_password = tk.Entry(container, show="*", bg='#FFF8F0', fg='#5D4E37',
+                                       relief='solid', bd=1)
+        self.login_password.grid(row=4, column=0, sticky='ew', pady=(0, 20))
         # Pressing Enter triggers login
         self.login_password.bind('<Return>', lambda e: self.login())
-        
-        # Login button
+
+        # Login button – stretches to full column width
         tk.Button(container, text="LOGIN", command=self.login,
-                 bg='#E67E22', fg='white', font=("Arial", 10, "bold"), relief='flat').pack(fill="x")
-    
+                 bg='#E67E22', fg='white', font=("Arial", 10, "bold"),
+                 relief='flat').grid(row=5, column=0, sticky='ew')
+
     def create_register_tab(self, parent):
         #Creates registration form
-        container = tk.Frame(parent, bg='#FFFFFF')
-        container.pack(fill="both", expand=True, padx=30, pady=30)
-        
-        tk.Label(container, text="Create Account", font=("Arial", 12, "bold"), 
-                bg='#FFFFFF', fg='#E67E22').pack(pady=(0, 20))
-        
+        # Outer frame fills the tab and centres content
+        outer = tk.Frame(parent, bg='#FFFFFF')
+        outer.pack(fill="both", expand=True)
+
+        outer.columnconfigure(0, weight=1)
+        outer.rowconfigure(0, weight=1)
+
+        container = tk.Frame(outer, bg='#FFFFFF')
+        container.grid(row=0, column=0, sticky='nsew', padx=40, pady=30)
+        container.columnconfigure(0, weight=1)   # all children stretch horizontally
+
+        tk.Label(container, text="Create Account", font=("Arial", 12, "bold"),
+                bg='#FFFFFF', fg='#E67E22').grid(row=0, column=0, pady=(0, 20), sticky='ew')
+
         # Full Name field
-        tk.Label(container, text="Full Name:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
-        self.reg_name = tk.Entry(container, width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
-        self.reg_name.pack(fill="x", pady=(0, 10))
-        
+        tk.Label(container, text="Full Name:", bg='#FFFFFF', fg='#5D4E37',
+                anchor='w').grid(row=1, column=0, sticky='ew')
+        self.reg_name = tk.Entry(container, bg='#FFF8F0', fg='#5D4E37',
+                                 relief='solid', bd=1)
+        self.reg_name.grid(row=2, column=0, sticky='ew', pady=(0, 10))
+
         # Email field
-        tk.Label(container, text="Email:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
-        self.reg_email = tk.Entry(container, width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
-        self.reg_email.pack(fill="x", pady=(0, 10))
-        
+        tk.Label(container, text="Email:", bg='#FFFFFF', fg='#5D4E37',
+                anchor='w').grid(row=3, column=0, sticky='ew')
+        self.reg_email = tk.Entry(container, bg='#FFF8F0', fg='#5D4E37',
+                                  relief='solid', bd=1)
+        self.reg_email.grid(row=4, column=0, sticky='ew', pady=(0, 10))
+
         # Role selection – values are simple: "supermarket" or "warehouse"
-        tk.Label(container, text="Role:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
+        tk.Label(container, text="Role:", bg='#FFFFFF', fg='#5D4E37',
+                anchor='w').grid(row=5, column=0, sticky='ew')
         self.reg_role = ttk.Combobox(container, values=["supermarket", "warehouse"])
-        self.reg_role.pack(fill="x", pady=(0, 10))
-        
+        self.reg_role.grid(row=6, column=0, sticky='ew', pady=(0, 10))
+
         # Role Password (predefined constant from db)
-        tk.Label(container, text="Role Password:", bg='#FFFFFF', fg='#5D4E37').pack(anchor='w')
-        self.reg_password = tk.Entry(container, show="*", width=30, bg='#FFF8F0', fg='#5D4E37', relief='solid', bd=1)
-        self.reg_password.pack(fill="x", pady=(0, 20))
-        
-        # Register button
+        tk.Label(container, text="Role Password:", bg='#FFFFFF', fg='#5D4E37',
+                anchor='w').grid(row=7, column=0, sticky='ew')
+        self.reg_password = tk.Entry(container, show="*", bg='#FFF8F0', fg='#5D4E37',
+                                     relief='solid', bd=1)
+        self.reg_password.grid(row=8, column=0, sticky='ew', pady=(0, 20))
+
+        # Register button – stretches to full column width
         tk.Button(container, text="REGISTER", command=self.register,
-                 bg='#27AE60', fg='white', font=("Arial", 10, "bold"), relief='flat').pack(fill="x")
-    
+                 bg='#27AE60', fg='white', font=("Arial", 10, "bold"),
+                 relief='flat').grid(row=9, column=0, sticky='ew')
+
     def login(self):
        ## Handles login process
         email = self.login_email.get().strip()
         password = self.login_password.get()
-        
+
         if not email or not password:
             messagebox.showerror("Error", "Please enter email and password")
             return
-        
+
         # Show loading cursor
         self.root.config(cursor="watch")
         self.root.update()
-        
+
         try:
             # Query database for matching email and hashed password
             user = find_user_by_email_and_password(email, password)
-            
+
             if user:
                 # Login successful – show welcome and open the role‑specific dashboard
                 messagebox.showinfo("Success", f"Welcome {user['fullname']}!\nRole: {user['role']}")
@@ -140,14 +172,14 @@ class AuthWindow:
         except Exception as e:
             self.root.config(cursor="")
             messagebox.showerror("Error", f"Connection error: {str(e)}\nPlease check your internet connection")
-    
+
     def register(self):
        # Handles registration process
         name = self.reg_name.get().strip()
         email = self.reg_email.get().strip()
         role = self.reg_role.get()
         password = self.reg_password.get()
-        
+
         if not all([name, email, role, password]):
             messagebox.showerror("Error", "Please fill all fields")
             return
@@ -155,18 +187,18 @@ class AuthWindow:
         if "@" not in email or "." not in email:
             messagebox.showerror("Error", "Invalid email format")
             return
-        
+
         # Show loading cursor
         self.root.config(cursor="watch")
         self.root.update()
-        
+
         try:
             # Check if email already exists
             if find_user_by_email(email):
                 self.root.config(cursor="")
                 messagebox.showerror("Error", "Email already registered")
                 return
-            
+
             # Verify role password against the constants from db
             if role == "supermarket" and password != SUPERMARKET_PASSWORD:
                 self.root.config(cursor="")
@@ -176,24 +208,24 @@ class AuthWindow:
                 self.root.config(cursor="")
                 messagebox.showerror("Error", "Invalid role password")
                 return
-            
+
             # Create user in database
             create_user(email, password, name, role)
             self.root.config(cursor="")
             messagebox.showinfo("Success", f"User {name} registered successfully!")
-            
+
             # Clear form fields
             self.reg_name.delete(0, tk.END)
             self.reg_email.delete(0, tk.END)
             self.reg_role.set('')
             self.reg_password.delete(0, tk.END)
-            
+
             # Switch to login tab
             self.root.children['!notebook'].select(0)
         except Exception as e:
             self.root.config(cursor="")
             messagebox.showerror("Error", f"Connection error: {str(e)}\nPlease check your internet connection")
-    
+
     def open_dashboard(self, user):
        #redirects to the specific dashboard depending on ones role
         role = user['role']

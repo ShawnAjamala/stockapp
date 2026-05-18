@@ -1,4 +1,17 @@
 # Imports for databases required
+import dns.resolver
+import dns.name
+# Monkey-patch to handle Windows registry empty label issue
+_original_config = dns.resolver.Resolver._config_win32_fromkey
+
+def _patched_config(self, key, is_default):
+    try:
+        _original_config(self, key, is_default)
+    except dns.name.EmptyLabel:
+        pass  # ignore empty domain label
+
+dns.resolver.Resolver._config_win32_fromkey = _patched_config
+
 from pymongo import MongoClient
 from datetime import datetime
 import hashlib

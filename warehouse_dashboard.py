@@ -160,7 +160,7 @@ class WarehouseDashboard:
                   '#E67E22', 'pending_label')
         make_card(stats_frame, "STOCK SENT TODAY",  f"{sent_today:.1f} KG",
                   '#E67E22', 'sent_label')
-        make_card(stats_frame, "INVENTORY VALUE",   f"${inv_value:,.2f}",
+        make_card(stats_frame, "INVENTORY VALUE",   f"Ksh{inv_value:,.2f}",
                   '#27AE60', 'inv_value_label')
         make_card(stats_frame, "TOTAL PRODUCTS",    str(total_prods),
                   '#E67E22', 'totalprod_label')

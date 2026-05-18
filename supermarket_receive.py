@@ -56,8 +56,8 @@ class SupermarketReceive(tk.Frame):
         self.avail_label = tk.Label(add_frame, text="0", fg='green')
         self.avail_label.grid(row=0, column=3, padx=5, pady=5)
 
-        tk.Label(add_frame, text="Cost/KG:").grid(row=1, column=0, padx=5, pady=5)
-        self.price_label = tk.Label(add_frame, text="$0.00", fg='#E67E22')
+        tk.Label(add_frame, text="Cost/KG (Ksh):").grid(row=1, column=0, padx=5, pady=5)
+        self.price_label = tk.Label(add_frame, text="Ksh 0.00", fg='#E67E22')
         self.price_label.grid(row=1, column=1, padx=5, pady=5)
 
         tk.Label(add_frame, text="Qty (KG):").grid(row=1, column=2, padx=5, pady=5)
@@ -122,12 +122,12 @@ class SupermarketReceive(tk.Frame):
         scroll_inv.config(command=self.inv_tree.yview)
         self.inv_tree.heading('Name', text='Product')
         self.inv_tree.heading('Stock', text='KG')
-        self.inv_tree.heading('Cost', text='Cost $/KG')
-        self.inv_tree.heading('Selling', text='Selling $/KG')
+        self.inv_tree.heading('Cost', text='Cost Ksh/KG')
+        self.inv_tree.heading('Selling', text='Selling Ksh/KG')
         self.inv_tree.column('Name', width=150)
         self.inv_tree.column('Stock', width=70)
-        self.inv_tree.column('Cost', width=80)
-        self.inv_tree.column('Selling', width=80)
+        self.inv_tree.column('Cost', width=90)
+        self.inv_tree.column('Selling', width=100)
         self.inv_tree.pack(side='left', fill='both', expand=True)
 
         # Panel for updating the selling price of a supermarket product
@@ -142,12 +142,12 @@ class SupermarketReceive(tk.Frame):
         self.price_product_cb.grid(row=0, column=1, padx=5, pady=5)
         self.price_product_cb.bind('<<ComboboxSelected>>', self.on_price_product_select)
 
-        tk.Label(price_inner, text="New Price ($/KG):").grid(row=0, column=2, padx=5, pady=5)
+        tk.Label(price_inner, text="New Price (Ksh/KG):").grid(row=0, column=2, padx=5, pady=5)
         self.new_price_entry = tk.Entry(price_inner, width=10)
         self.new_price_entry.grid(row=0, column=3, padx=5, pady=5)
 
-        tk.Label(price_inner, text="Profit/KG:").grid(row=1, column=0, padx=5, pady=5)
-        self.profit_preview = tk.Label(price_inner, text="$0.00", fg='green')
+        tk.Label(price_inner, text="Profit/KG (Ksh):").grid(row=1, column=0, padx=5, pady=5)
+        self.profit_preview = tk.Label(price_inner, text="Ksh 0.00", fg='green')
         self.profit_preview.grid(row=1, column=1, padx=5, pady=5)
 
         tk.Button(price_inner, text="UPDATE", command=self.update_selling_price,
@@ -184,8 +184,8 @@ class SupermarketReceive(tk.Frame):
             self.inv_tree.insert('', 'end', values=(
                 p['name'],
                 f"{p['quantity']:.1f}",
-                f"${p.get('cost_price', 0):.2f}",
-                f"${p.get('selling_price', 0):.2f}"
+                f"Ksh {p.get('cost_price', 0):.2f}",
+                f"Ksh {p.get('selling_price', 0):.2f}"
             ))
 
     def search_inventory(self):
@@ -197,8 +197,8 @@ class SupermarketReceive(tk.Frame):
                 self.inv_tree.insert('', 'end', values=(
                     name,
                     f"{p['quantity']:.1f}",
-                    f"${p.get('cost_price', 0):.2f}",
-                    f"${p.get('selling_price', 0):.2f}"
+                    f"Ksh {p.get('cost_price', 0):.2f}",
+                    f"Ksh {p.get('selling_price', 0):.2f}"
                 ))
 
     # Called when a product is selected in the request combobox
@@ -207,7 +207,7 @@ class SupermarketReceive(tk.Frame):
         if name in self.warehouse_products:
             p = self.warehouse_products[name]
             self.avail_label.config(text=f"{p['quantity']:.2f}")
-            self.price_label.config(text=f"${p['price']:.2f}")
+            self.price_label.config(text=f"Ksh {p['price']:.2f}")
 
     # ---------- Cart methods ----------
     def add_to_cart(self):
@@ -301,7 +301,7 @@ class SupermarketReceive(tk.Frame):
         # Show the profit per KG based on the new price and cost price
         name = self.price_product_cb.get()
         if not name or name not in self.supermarket_products:
-            self.profit_preview.config(text="$0.00")
+            self.profit_preview.config(text="Ksh 0.00")
             return
         cost = self.supermarket_products[name].get('cost_price', 0)
         try:
@@ -309,7 +309,7 @@ class SupermarketReceive(tk.Frame):
         except:
             new_price = 0
         profit = new_price - cost
-        self.profit_preview.config(text=f"${profit:.2f}", fg='green' if profit >= 0 else 'red')
+        self.profit_preview.config(text=f"Ksh {profit:.2f}", fg='green' if profit >= 0 else 'red')
 
     def update_selling_price(self):
         # Apply the new selling price to the selected supermarket product

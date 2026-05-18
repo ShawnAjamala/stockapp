@@ -70,8 +70,8 @@ class WarehouseSend(tk.Frame):
         self.avail_label.grid(row=0, column=3, pady=5)
 
         # Display price per KG
-        tk.Label(form, text="Price/KG ($):").grid(row=1, column=0, sticky='w', pady=5)
-        self.price_label = tk.Label(form, text="$0.00", fg='#E67E22')
+        tk.Label(form, text="Price/KG (Ksh):").grid(row=1, column=0, sticky='w', pady=5)
+        self.price_label = tk.Label(form, text="Ksh 0.00", fg='#E67E22')
         self.price_label.grid(row=1, column=1, pady=5)
 
         # Supermarket selection
@@ -89,7 +89,7 @@ class WarehouseSend(tk.Frame):
 
         # Total value (calculated)
         tk.Label(form, text="Total Value:").grid(row=2, column=2, padx=10, pady=5)
-        self.total_label = tk.Label(form, text="$0.00", fg='green')
+        self.total_label = tk.Label(form, text="Ksh 0.00", fg='green')
         self.total_label.grid(row=2, column=3, pady=5)
 
         # Send button
@@ -201,7 +201,7 @@ class WarehouseSend(tk.Frame):
         if name in self.product_dict:
             p = self.product_dict[name]
             self.avail_label.config(text=f"{p['quantity']:.2f}")
-            self.price_label.config(text=f"${p['price']:.2f}")
+            self.price_label.config(text=f"Ksh {p['price']:.2f}")
             self.calc_total()
 
     def calc_total(self, event=None):
@@ -211,11 +211,11 @@ class WarehouseSend(tk.Frame):
             name = self.product_cb.get()
             if name in self.product_dict:
                 price = self.product_dict[name]['price']
-                self.total_label.config(text=f"${qty * price:.2f}")
+                self.total_label.config(text=f"Ksh {qty * price:.2f}")
             else:
-                self.total_label.config(text="$0.00")
+                self.total_label.config(text="Ksh 0.00")
         except:
-            self.total_label.config(text="$0.00")
+            self.total_label.config(text="Ksh 0.00")
 
     def load_pending_requests(self):
         # Load pending stock requests from the database and display in listbox
@@ -308,9 +308,9 @@ class WarehouseSend(tk.Frame):
         self.product_cb.set('')
         self.supermarket_cb.set('')
         self.qty_entry.delete(0, tk.END)
-        self.total_label.config(text="$0.00")
+        self.total_label.config(text="Ksh 0.00")
         self.avail_label.config(text="0")
-        self.price_label.config(text="$0.00")
+        self.price_label.config(text="Ksh 0.00")
         self.status_label.config(text="")
         self.load_warehouse_products()
 

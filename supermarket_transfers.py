@@ -72,7 +72,7 @@ class SupermarketTransfers(tk.Frame):
         h = ttk.Scrollbar(container, orient='horizontal')
         h.grid(row=1, column=0, sticky='ew')
 
-        cols = ('Date', 'Product', 'Quantity (KG)', 'Cost Price ($/KG)', 'Approved By')
+        cols = ('Date', 'Product', 'Quantity (KG)', 'Cost Price (Ksh/KG)', 'Approved By')
         self.in_tree = ttk.Treeview(container, columns=cols, show='headings',
                                     yscrollcommand=v.set, xscrollcommand=h.set, height=14,
                                     selectmode='extended')
@@ -117,7 +117,7 @@ class SupermarketTransfers(tk.Frame):
         h = ttk.Scrollbar(container, orient='horizontal')
         h.grid(row=1, column=0, sticky='ew')
 
-        cols = ('Date', 'Product', 'Qty Sold (KG)', 'Selling Price ($/KG)', 'Cost Price ($/KG)', 'Profit ($)')
+        cols = ('Date', 'Product', 'Qty Sold (KG)', 'Selling Price (Ksh/KG)', 'Cost Price (Ksh/KG)', 'Profit (Ksh)')
         self.out_tree = ttk.Treeview(container, columns=cols, show='headings',
                                      yscrollcommand=v.set, xscrollcommand=h.set, height=14,
                                      selectmode='extended')
@@ -169,7 +169,7 @@ class SupermarketTransfers(tk.Frame):
                 r['timestamp'].strftime('%Y-%m-%d %H:%M'),
                 r.get('product_name', '—'),
                 f"{r.get('quantity', 0):.2f}",
-                f"${cost:.2f}",
+                f"Ksh{cost:.2f}",
                 r.get('user_email', r.get('from_email', '—'))
             ))
             self._in_ids.append((iid, str(r['_id'])))
@@ -201,9 +201,9 @@ class SupermarketTransfers(tk.Frame):
                 s['timestamp'].strftime('%Y-%m-%d %H:%M'),
                 s.get('product_name', '—'),
                 f"{s.get('quantity_sold', 0):.2f}",
-                f"${s.get('selling_price', 0):.2f}",
-                f"${s.get('cost_price', 0):.2f}",
-                f"${profit:.2f}"
+                f"Ksh{s.get('selling_price', 0):.2f}",
+                f"Ksh{s.get('cost_price', 0):.2f}",
+                f"Ksh{profit:.2f}"
             ))
             self._out_ids.append((iid, str(s['_id'])))
             total_kg += s.get('quantity_sold', 0)
@@ -297,6 +297,6 @@ class SupermarketTransfers(tk.Frame):
             return
         with open(path, 'w', newline='', encoding='utf-8') as f:
             w = csv.writer(f)
-            w.writerow(['Date', 'Product', 'Qty Sold (KG)', 'Selling Price ($/KG)', 'Cost Price ($/KG)', 'Profit ($)'])
+            w.writerow(['Date', 'Product', 'Qty Sold (KG)', 'Selling Price (Ksh/KG)', 'Cost Price (Ksh/KG)', 'Profit (Ksh)'])
             w.writerows(rows)
         messagebox.showinfo("Exported", f"Saved to {path}")
