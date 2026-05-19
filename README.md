@@ -123,12 +123,7 @@ python main.py
 Or directly:
 python auth.py
 
-Step 3: Login with Default Credentials
-Email: admin@supermarket.com
-Password: admin123
-
-Or register a new account using the Register tab.
-
+Step 3: Login with Credentials or register a new account using the Register tab.
 ---
 ## Author
 -Shawn Ajamala
